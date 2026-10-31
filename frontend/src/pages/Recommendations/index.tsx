@@ -239,7 +239,7 @@ export const RecommendationsPage: React.FC = () => {
               }}
             >
               <option value="all">All Impact Tiers</option>
-              <option value="Very High">Very High (>100 t)</option>
+              <option value="Very High">Very High (&gt;100 t)</option>
               <option value="High">High (35 - 100 t)</option>
               <option value="Medium">Medium (15 - 35 t)</option>
               <option value="Low">Low (&lt;15 t)</option>

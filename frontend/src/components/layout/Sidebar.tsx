@@ -4,9 +4,7 @@ import {
   LayoutDashboard,
   Calculator,
   Sliders,
-  BarChart3,
   Lightbulb,
-  FileText,
   Settings,
   X,
   MapPin
@@ -22,9 +20,7 @@ const navItems = [
   { path: '/overview', label: 'Overview', icon: LayoutDashboard },
   { path: '/calculator', label: 'Carbon Calculator', icon: Calculator },
   { path: '/simulator', label: 'What-If Simulator', icon: Sliders },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/recommendations', label: 'Recommendations', icon: Lightbulb },
-  { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/settings', label: 'Settings', icon: Settings }
 ];
 
