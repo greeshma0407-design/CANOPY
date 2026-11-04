@@ -10,7 +10,6 @@ from datetime import datetime
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.engine.reflection import Inspector
 
 
 # revision identifiers, used by Alembic.
@@ -22,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     bind = op.get_bind()
-    insp = Inspector.from_engine(bind)
+    insp = sa.inspect(bind)
     existing_campus_cols = [c['name'] for c in insp.get_columns('campuses')]
 
     # 1. Add fields to campuses table if not already added
@@ -55,7 +54,6 @@ def upgrade() -> None:
             batch_op.create_foreign_key('fk_users_campus_id', 'campuses', ['campus_id'], ['id'])
 
     # Populate existing users with campus-mlrit-01 if null
-    op.execute("UPDATE users SET campus_id = 'campus-mlrit-01' WHERE campus_id IS NULL")
 
     # 3. Create invitations table if not exists
     tables = insp.get_table_names()
