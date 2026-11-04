@@ -42,13 +42,19 @@ def create_user(
 
     # Campus isolation: user inherits current_user's campus
     assigned_campus_id = current_user.campus_id or payload.campus_id
+    target_role = payload.role.value if isinstance(payload.role, UserRole) else str(payload.role)
+    if target_role in (UserRole.ADMIN.value, UserRole.CAMPUS_ADMIN.value):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrator privileges cannot be granted to users joining an existing campus.",
+        )
 
     new_user = User(
         campus_id=assigned_campus_id,
         email=normalized_email,
         full_name=payload.full_name.strip(),
         hashed_password=hash_password(payload.password),
-        role=payload.role.value if isinstance(payload.role, UserRole) else str(payload.role),
+        role=target_role,
         is_active=payload.is_active,
     )
     db.add(new_user)

@@ -17,8 +17,11 @@ import {
   ReportingPeriod,
 } from '../types';
 
-const BACKEND_BASE = (import.meta as any).env?.VITE_API_URL || 'http://127.0.0.1:8000';
-const API_BASE = `${BACKEND_BASE}/api/v1`;
+const DEFAULT_BACKEND = (import.meta as any).env?.PROD
+  ? 'https://canopy-vki6.onrender.com'
+  : 'http://127.0.0.1:8000';
+const BACKEND_BASE = (import.meta as any).env?.VITE_API_URL || DEFAULT_BACKEND;
+const API_BASE = `${BACKEND_BASE.replace(/\/+$/, '')}/api/v1`;
 
 export interface ApiError {
   status: number;

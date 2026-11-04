@@ -37,6 +37,13 @@ def create_invitation(
         )
 
     # Check if there is an active pending invitation
+    target_role = payload.role.value if hasattr(payload.role, "value") else str(payload.role)
+    if target_role in ("ADMIN", "CAMPUS_ADMIN"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrator privileges cannot be granted to users joining an existing campus.",
+        )
+
     existing_invite = (
         db.query(Invitation)
         .filter(

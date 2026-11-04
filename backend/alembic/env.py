@@ -21,7 +21,7 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 def get_database_url() -> str:
-    url = get_database_url()
+    url = settings.DATABASE_URL
 
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+psycopg://", 1)
@@ -32,7 +32,7 @@ def get_database_url() -> str:
 
 
 def run_migrations_offline() -> None:
-    url = settings.DATABASE_URL
+    url = get_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,

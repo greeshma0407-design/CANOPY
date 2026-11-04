@@ -21,8 +21,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     bind = op.get_bind()
-    insp = sa.inspect(bind)
-    existing_campus_cols = [c['name'] for c in insp.get_columns('campuses')]
+    try:
+        insp = sa.inspect(bind)
+        existing_campus_cols = [c['name'] for c in insp.get_columns('campuses')] if insp else []
+        existing_user_cols = [c['name'] for c in insp.get_columns('users')] if insp else []
+        tables = insp.get_table_names() if insp else []
+    except Exception:
+        existing_campus_cols = []
+        existing_user_cols = []
+        tables = []
 
     # 1. Add fields to campuses table if not already added
     campus_new_cols = [
@@ -47,7 +54,6 @@ def upgrade() -> None:
                 batch_op.add_column(sa.Column(col_name, col_type, nullable=True))
 
     # 2. Add campus_id to users table if not already added
-    existing_user_cols = [c['name'] for c in insp.get_columns('users')]
     if 'campus_id' not in existing_user_cols:
         with op.batch_alter_table('users') as batch_op:
             batch_op.add_column(sa.Column('campus_id', sa.String(), nullable=True))
@@ -56,7 +62,6 @@ def upgrade() -> None:
     # Populate existing users with campus-mlrit-01 if null
 
     # 3. Create invitations table if not exists
-    tables = insp.get_table_names()
     if 'invitations' not in tables:
         op.create_table(
             'invitations',

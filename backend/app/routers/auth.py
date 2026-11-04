@@ -74,8 +74,8 @@ def login(
         value=access_token,
         max_age=max_age_seconds,
         httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite=settings.COOKIE_SAMESITE,
+        secure=settings.effective_cookie_secure,
+        samesite=settings.effective_cookie_samesite,
         path="/",
     )
 
@@ -103,6 +103,12 @@ def register_invited(
 
     if invite.expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="This invitation token has expired.")
+
+    if invite.role in ("ADMIN", "CAMPUS_ADMIN"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges cannot be granted to users joining an existing campus.",
+        )
 
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == invite.email).first()
@@ -142,8 +148,8 @@ def register_invited(
         value=access_token,
         max_age=max_age_seconds,
         httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite=settings.COOKIE_SAMESITE,
+        secure=settings.effective_cookie_secure,
+        samesite=settings.effective_cookie_samesite,
         path="/",
     )
 
@@ -185,8 +191,8 @@ def logout(response: Response):
     response.delete_cookie(
         key=settings.AUTH_COOKIE_NAME,
         httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite=settings.COOKIE_SAMESITE,
+        secure=settings.effective_cookie_secure,
+        samesite=settings.effective_cookie_samesite,
         path="/",
     )
     return {"message": "Logged out successfully."}

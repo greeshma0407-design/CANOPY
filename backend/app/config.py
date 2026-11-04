@@ -11,10 +11,13 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str = "sqlite:///./canopy.db"
+    ENVIRONMENT: str = "development"
     ALLOWED_ORIGINS: str = (
         "http://localhost:5173,http://localhost:3000,"
-        "http://127.0.0.1:5173,http://127.0.0.1:3000"
+        "http://127.0.0.1:5173,http://127.0.0.1:3000,"
+        "https://canopy-vki6.onrender.com"
     )
+    CORS_ORIGIN_REGEX: str = r"^https://.*\.onrender\.com$"
     METHODOLOGY_VERSION: str = "1.0.0-stage3-auth"
 
     # Authentication & Security
@@ -34,7 +37,21 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins_list(self) -> List[str]:
-        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def effective_cookie_secure(self) -> bool:
+        if self.COOKIE_SECURE:
+            return True
+        if self.ENVIRONMENT.lower() == "production" or self.effective_cookie_samesite.lower() == "none":
+            return True
+        return False
+
+    @property
+    def effective_cookie_samesite(self) -> str:
+        if self.ENVIRONMENT.lower() == "production" and self.COOKIE_SAMESITE.lower() == "lax":
+            return "none"
+        return self.COOKIE_SAMESITE
 
 
 settings = Settings()

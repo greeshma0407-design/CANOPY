@@ -119,8 +119,8 @@ def onboard_campus(
         value=access_token,
         max_age=max_age_seconds,
         httponly=True,
-        secure=settings.COOKIE_SECURE,
-        samesite=settings.COOKIE_SAMESITE,
+        secure=settings.effective_cookie_secure,
+        samesite=settings.effective_cookie_samesite,
         path="/",
     )
 
