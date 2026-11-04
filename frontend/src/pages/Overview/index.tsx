@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Zap,
@@ -11,8 +11,8 @@ import {
   TrendingDown,
   Calculator,
   Sliders,
-  Lightbulb,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { KPICard } from '../../components/ui/KPICard';
@@ -23,6 +23,8 @@ import { EmissionsTrendChart } from '../../components/charts/EmissionsTrendChart
 import { CategoryDonutChart } from '../../components/charts/CategoryDonutChart';
 import { useCampusData } from '../../hooks/useCampusData';
 import { mockRecommendations } from '../../data/recommendations';
+import { canopyApi } from '../../utils/apiClient';
+import { Recommendation } from '../../types';
 
 export const OverviewPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,18 +34,69 @@ export const OverviewPage: React.FC = () => {
     monthlyEmissions,
     categoryBreakdowns,
     totalEmissions_t_co2e,
-    dataCompletenessPct
+    dataCompletenessPct,
+    isLoading,
+    isLiveBackend,
+    refetch
   } = useCampusData();
 
-  // Top 3 actionable recommendations for roadmap preview
-  const topRoadmap = mockRecommendations.slice(0, 3);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>(mockRecommendations);
 
-  // Equivalent trees calculation for 68 tCO2e reduction achieved vs baseline
-  const avoidedVsBaseline = 73.0; // 915 baseline - 842 current = 73 tCO2e avoided
+  useEffect(() => {
+    canopyApi.getRecommendations()
+      .then(apiRecs => {
+        if (apiRecs && apiRecs.length > 0) {
+          const mapped: Recommendation[] = apiRecs.map(r => ({
+            id: r.id,
+            title: r.title,
+            category: r.category as 'electricity' | 'transport' | 'waste',
+            category_label: r.category.charAt(0).toUpperCase() + r.category.slice(1),
+            impact_level: r.impact_level as 'Low' | 'Medium' | 'High' | 'Very High',
+            effort_level: r.effort_level as 'Low' | 'Medium' | 'High',
+            status: r.status as 'Not Started' | 'Planned' | 'In Progress' | 'Completed',
+            short_description: r.short_description,
+            rationale: r.rationale || '',
+            estimated_annual_savings_t_co2e: r.estimated_annual_savings_tco2e ?? 0,
+            cost_estimate: r.cost_estimate || 'N/A',
+            payback_period: r.payback_period || 'N/A',
+            rule_key: r.rule_key,
+            assumptions: typeof r.assumptions === 'string' ? JSON.parse(r.assumptions) : (r.assumptions || []),
+            co_benefits: typeof r.co_benefits === 'string' ? JSON.parse(r.co_benefits) : (r.co_benefits || []),
+            timeline: r.timeline || '',
+            target_quarter: r.target_quarter || ''
+          }));
+          setRecommendations(mapped);
+        }
+      })
+      .catch(() => {
+        // Keep fallback mock recommendations if offline
+      });
+  }, []);
+
+  // Top 3 actionable recommendations for roadmap preview
+  const topRoadmap = recommendations.slice(0, 3);
+
+  // Dynamic category calculations
+  const elecBreakdown = categoryBreakdowns.find(c => c.category === 'electricity');
+  const transBreakdown = categoryBreakdowns.find(c => c.category === 'transport');
+  const wasteBreakdown = categoryBreakdowns.find(c => c.category === 'waste');
+
+  const elecVal = elecBreakdown?.emissions_t_co2e ?? 0;
+  const transVal = transBreakdown?.emissions_t_co2e ?? 0;
+  const wasteVal = wasteBreakdown?.emissions_t_co2e ?? 0;
+
+  const elecPct = elecBreakdown?.percentage ?? 0;
+  const transPct = transBreakdown?.percentage ?? 0;
+  const wastePct = wasteBreakdown?.percentage ?? 0;
+
+  // Baseline comparison (CY 2024 baseline = 915.0 tCO2e)
+  const baselineEmissions = 915.0;
+  const avoidedVsBaseline = Math.max(0, Math.round((baselineEmissions - totalEmissions_t_co2e) * 10) / 10);
+  const trendPctVsBaseline = Math.round(((totalEmissions_t_co2e - baselineEmissions) / baselineEmissions) * 100);
   const treesEquivalent = Math.round((avoidedVsBaseline * 1000) / 22);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem', width: '100%', minWidth: 0 }}>
       {/* Top Banner / Context Line */}
       <div
         style={{
@@ -57,15 +110,27 @@ export const OverviewPage: React.FC = () => {
         }}
       >
         <div>
-          <h1 style={{ fontSize: '1.8rem', color: 'var(--text-primary)' }}>
-            {campus.name}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h1 style={{ fontSize: '1.8rem', color: 'var(--text-primary)' }}>
+              {campus.name}
+            </h1>
+            <Badge variant={isLiveBackend ? 'success' : 'illustrative'}>
+              {isLiveBackend ? 'Live API Connected' : 'Illustrative Demo Data'}
+            </Badge>
+          </div>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
             Reporting Cycle: <strong style={{ color: 'var(--sage)' }}>{selectedPeriod.label}</strong> &bull; Location: {campus.location} &bull; Population: {campus.population.toLocaleString()}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Badge variant="illustrative">Illustrative Demo Data</Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refetch}
+            icon={<RefreshCw size={14} className={isLoading ? 'spin' : ''} />}
+          >
+            Refresh Data
+          </Button>
           <Button
             variant="secondary"
             size="sm"
@@ -92,15 +157,15 @@ export const OverviewPage: React.FC = () => {
           value={totalEmissions_t_co2e}
           unit="tCO2e"
           icon={Globe2}
-          trendPct={-8.0}
-          trendDirection="down"
-          periodComparison="vs CY 2024 baseline (915 t)"
+          trendPct={trendPctVsBaseline}
+          trendDirection={trendPctVsBaseline <= 0 ? 'down' : 'up'}
+          periodComparison={`vs CY 2024 baseline (${baselineEmissions} t)`}
           isDesirableDown={true}
         />
         <KPICard
           label="Electricity Share"
-          value={522.0}
-          unit="tCO2e (62%)"
+          value={elecVal}
+          unit={`tCO2e (${elecPct}%)`}
           icon={Zap}
           trendPct={-5.0}
           trendDirection="down"
@@ -109,18 +174,18 @@ export const OverviewPage: React.FC = () => {
         />
         <KPICard
           label="Transport Share"
-          value={202.0}
-          unit="tCO2e (24%)"
+          value={transVal}
+          unit={`tCO2e (${transPct}%)`}
           icon={Bus}
           trendPct={2.0}
           trendDirection="up"
-          periodComparison="increased ridership"
+          periodComparison="fleet + commuter routes"
           isDesirableDown={true}
         />
         <KPICard
           label="Waste & Landfill Share"
-          value={118.0}
-          unit="tCO2e (14%)"
+          value={wasteVal}
+          unit={`tCO2e (${wastePct}%)`}
           icon={Trash2}
           trendPct={-1.0}
           trendDirection="down"
@@ -137,7 +202,7 @@ export const OverviewPage: React.FC = () => {
           action={
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Period:</span>
-              <span style={{ fontSize: '0.78rem', color: 'var(--sage)', fontWeight: 600 }}>12 Months (2025)</span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--sage)', fontWeight: 600 }}>{selectedPeriod.label}</span>
             </div>
           }
         >
@@ -147,7 +212,7 @@ export const OverviewPage: React.FC = () => {
         <Card
           title="Carbon Breakdown"
           subtitle="Proportional share by GHG emission category"
-          action={<Badge variant="info">CY 2025</Badge>}
+          action={<Badge variant="info">{selectedPeriod.label}</Badge>}
         >
           <CategoryDonutChart data={categoryBreakdowns} totalEmissions={totalEmissions_t_co2e} height={310} />
         </Card>
@@ -160,24 +225,24 @@ export const OverviewPage: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Completeness Level</span>
-              <Badge variant="success" icon={<CheckCircle2 size={12} />}>
-                High Confidence ({dataCompletenessPct}%)
+              <Badge variant={dataCompletenessPct >= 90 ? 'success' : 'warning'} icon={<CheckCircle2 size={12} />}>
+                {dataCompletenessPct >= 90 ? 'High Confidence' : 'Partial Audit'} ({dataCompletenessPct}%)
               </Badge>
             </div>
             <ProgressBar value={dataCompletenessPct} max={100} color="var(--sage)" height={10} />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
                 <span>Verified Utility Invoices:</span>
                 <strong style={{ color: 'var(--text-primary)' }}>12 of 12 months</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
                 <span>Commuter Route Logs:</span>
-                <strong style={{ color: 'var(--text-primary)' }}>11 of 12 months</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>12 of 12 months</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
                 <span>Waste Weighbridge Receipts:</span>
-                <strong style={{ color: 'var(--text-primary)' }}>11 of 12 months</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>12 of 12 months</strong>
               </div>
             </div>
           </div>
@@ -286,7 +351,7 @@ export const OverviewPage: React.FC = () => {
               onClick={() => navigate('/recommendations')}
               icon={<ArrowRight size={14} />}
             >
-              View All 8
+              View All {recommendations.length}
             </Button>
           }
         >
@@ -301,19 +366,21 @@ export const OverviewPage: React.FC = () => {
                   padding: '0.85rem 1rem',
                   borderRadius: 'var(--radius-md)',
                   backgroundColor: 'var(--card-elevated)',
-                  border: '1px solid var(--border)'
+                  border: '1px solid var(--border)',
+                  minWidth: 0,
+                  gap: '0.75rem'
                 }}
               >
-                <div style={{ maxWidth: '75%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                       {rec.title}
                     </span>
                     <Badge variant={rec.status === 'Completed' ? 'success' : rec.status === 'In Progress' ? 'warning' : 'neutral'}>
                       {rec.status}
                     </Badge>
                   </div>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.35, wordBreak: 'break-word' }}>
                     {rec.short_description}
                   </p>
                 </div>
@@ -339,7 +406,8 @@ export const OverviewPage: React.FC = () => {
             flexDirection: 'column',
             justifyContent: 'space-between',
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            minWidth: 0
           }}
         >
           <div
@@ -366,11 +434,11 @@ export const OverviewPage: React.FC = () => {
               What-If Campus Decarbonization Simulator
             </h3>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.45, maxWidth: '480px' }}>
-              Explore how combinations of rooftop solar arrays, transit modal shifts, and organic dining hall composting can lower MLRIT's emissions toward Net-Zero.
+              Explore how combinations of rooftop solar arrays, transit modal shifts, and organic dining hall composting can lower {campus?.name || 'campus'} emissions toward Net-Zero.
             </p>
           </div>
 
-          <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <Button
               variant="primary"
               onClick={() => navigate('/simulator')}
@@ -379,7 +447,7 @@ export const OverviewPage: React.FC = () => {
               Launch Simulator
             </Button>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Compare baseline 842 tCO2e vs customized targets
+              Compare baseline {baselineEmissions} tCO2e vs customized targets
             </span>
           </div>
         </div>

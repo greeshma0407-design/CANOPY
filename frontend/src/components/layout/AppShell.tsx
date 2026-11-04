@@ -6,7 +6,7 @@ import { useCampusData } from '../../hooks/useCampusData';
 
 export const AppShell: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { reportingPeriods, selectedPeriodId, setSelectedPeriodId } = useCampusData();
+  const { reportingPeriods, selectedPeriodId, setSelectedPeriodId, campus } = useCampusData();
   const location = useLocation();
 
   // Map route to friendly title
@@ -24,6 +24,8 @@ export const AppShell: React.FC = () => {
         return 'Actionable Reduction Roadmap';
       case '/reports':
         return 'Compliance & Sustainability Reports';
+      case '/users':
+        return 'Institutional User Management';
       case '/settings':
         return 'Campus Settings & Factors';
       default:
@@ -34,7 +36,11 @@ export const AppShell: React.FC = () => {
   return (
     <div className="app-container">
       {/* Fixed Botanical Sidebar */}
-      <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+      <Sidebar
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => setMobileOpen(false)}
+        campusName={campus?.name}
+      />
 
       {/* Main Content Area */}
       <div className="main-viewport">
@@ -44,6 +50,7 @@ export const AppShell: React.FC = () => {
           selectedPeriodId={selectedPeriodId}
           onSelectPeriod={setSelectedPeriodId}
           pageTitle={getPageTitle(location.pathname)}
+          campusName={campus?.name}
         />
 
         <main className="page-content" role="main">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   Users,
@@ -6,7 +6,9 @@ import {
   Calendar,
   CheckCircle2,
   Download,
-  Filter
+  Filter,
+  RefreshCw,
+  TrendingDown
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -17,19 +19,44 @@ import { CategoryBarChart } from '../../components/charts/CategoryBarChart';
 import { IntensityChart } from '../../components/charts/IntensityChart';
 import { useCampusData } from '../../hooks/useCampusData';
 import { exportToCSV } from '../../utils/csvExport';
+import { canopyApi, AnalyticsTrendEntry } from '../../utils/apiClient';
 
 export const AnalyticsPage: React.FC = () => {
   const {
     campus,
-    selectedPeriod,
+    selectedPeriodId,
+    setSelectedPeriodId,
+    reportingPeriods,
     monthlyEmissions,
-    totalEmissions_t_co2e,
     perStudentEmissions,
-    perSqMEmissions
+    perSqMEmissions,
+    isLiveBackend,
+    isLoading,
+    refetch
   } = useCampusData();
 
   // Filter state: 'all' | 'q1' | 'q2' | 'q3' | 'q4' | 'h1' | 'h2'
   const [filterRange, setFilterRange] = useState<string>('all');
+  const [periodTrends, setPeriodTrends] = useState<AnalyticsTrendEntry[]>([]);
+
+  // Fetch backend multi-period trends
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTrends = async () => {
+      try {
+        const trends = await canopyApi.getTrends(campus.id, 'IN-Telangana');
+        if (isMounted) {
+          setPeriodTrends(trends);
+        }
+      } catch (err) {
+        console.warn('[CANOPY API] Failed to fetch period trends:', err);
+      }
+    };
+    fetchTrends();
+    return () => {
+      isMounted = false;
+    };
+  }, [campus.id]);
 
   // Filtered monthly data
   const filteredData = monthlyEmissions.filter(m => {
@@ -87,7 +114,20 @@ export const AnalyticsPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Badge variant="illustrative">Illustrative Analytics</Badge>
+          {isLiveBackend ? (
+            <Badge variant="success">Live Backend Connected</Badge>
+          ) : (
+            <Badge variant="illustrative">Illustrative Analytics</Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            loading={isLoading}
+            icon={<RefreshCw size={14} />}
+          >
+            Refresh
+          </Button>
           <Button
             variant="secondary"
             size="sm"
@@ -99,7 +139,7 @@ export const AnalyticsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filter and Period Selection Bar */}
       <div
         style={{
           display: 'flex',
@@ -113,41 +153,70 @@ export const AnalyticsPage: React.FC = () => {
           flexWrap: 'wrap'
         }}
       >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Calendar size={15} color="var(--sage)" />
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              Period:
+            </span>
+          </div>
+          <select
+            value={selectedPeriodId}
+            onChange={(e) => setSelectedPeriodId(e.target.value)}
+            style={{
+              backgroundColor: 'var(--card-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-primary)',
+              padding: '0.3rem 0.65rem',
+              fontSize: '0.78rem',
+              fontWeight: 500,
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            {reportingPeriods.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Filter size={15} color="var(--sage)" />
           <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Time Range Window:
+            Filter Window:
           </span>
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-          {[
-            { id: 'all', label: 'Full Year (12M)' },
-            { id: 'h1', label: 'H1 (Jan - Jun)' },
-            { id: 'h2', label: 'H2 (Jul - Dec)' },
-            { id: 'q1', label: 'Q1 (Jan - Mar)' },
-            { id: 'q2', label: 'Q2 (Apr - Jun)' },
-            { id: 'q3', label: 'Q3 (Jul - Sep)' },
-            { id: 'q4', label: 'Q4 (Oct - Dec)' }
-          ].map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFilterRange(f.id)}
-              style={{
-                padding: '0.35rem 0.75rem',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: filterRange === f.id ? 'var(--card-elevated)' : 'transparent',
-                border: filterRange === f.id ? '1px solid var(--sage)' : '1px solid transparent',
-                color: filterRange === f.id ? 'var(--sage)' : 'var(--text-secondary)',
-                fontSize: '0.78rem',
-                fontWeight: filterRange === f.id ? 600 : 400,
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {[
+              { id: 'all', label: 'Full Year (12M)' },
+              { id: 'h1', label: 'H1 (Jan - Jun)' },
+              { id: 'h2', label: 'H2 (Jul - Dec)' },
+              { id: 'q1', label: 'Q1 (Jan - Mar)' },
+              { id: 'q2', label: 'Q2 (Apr - Jun)' },
+              { id: 'q3', label: 'Q3 (Jul - Sep)' },
+              { id: 'q4', label: 'Q4 (Oct - Dec)' }
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setFilterRange(f.id)}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: filterRange === f.id ? 'var(--card-elevated)' : 'transparent',
+                  border: filterRange === f.id ? '1px solid var(--sage)' : '1px solid transparent',
+                  color: filterRange === f.id ? 'var(--sage)' : 'var(--text-secondary)',
+                  fontSize: '0.78rem',
+                  fontWeight: filterRange === f.id ? 600 : 400,
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-fast)'
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -209,6 +278,54 @@ export const AnalyticsPage: React.FC = () => {
       >
         <IntensityChart data={intensityData} height={260} />
       </Card>
+
+      {/* Multi-Period Backend Trends (if available) */}
+      {periodTrends.length > 0 && (
+        <Card
+          title="Multi-Year Longitudinal Trends (/api/v1/analytics/trends)"
+          subtitle="Annualized reporting period emissions comparison verified by calculation engine"
+          action={
+            <Badge variant="success" icon={<TrendingDown size={12} />}>
+              Longitudinal Reductions
+            </Badge>
+          }
+        >
+          <div className="table-container" style={{ marginTop: '0.5rem' }}>
+            <table className="canopy-table">
+              <thead>
+                <tr>
+                  <th>Period Label</th>
+                  <th>Date Range</th>
+                  <th>Total Emissions (tCO2e)</th>
+                  <th>Total Mass (kgCO2e)</th>
+                  <th>Audit Completeness</th>
+                </tr>
+              </thead>
+              <tbody>
+                {periodTrends.map(t => (
+                  <tr key={t.period_id}>
+                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.label}</td>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      {t.start_date} to {t.end_date}
+                    </td>
+                    <td style={{ fontFamily: 'var(--font-editorial)', fontWeight: 700, color: 'var(--sage)', fontSize: '1.05rem' }}>
+                      {t.total_tco2e.toFixed(3)} t
+                    </td>
+                    <td style={{ color: 'var(--text-secondary)' }}>
+                      {t.total_kg_co2e.toLocaleString()} kg
+                    </td>
+                    <td>
+                      <Badge variant={t.completeness_status === 'complete' ? 'success' : 'warning'}>
+                        {t.completeness_status}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Month-by-Month Tabular Breakdown */}
       <Card

@@ -50,7 +50,7 @@ export const CategoryDonutChart: React.FC<CategoryDonutChartProps> = ({
   height = 280
 }) => {
   return (
-    <div style={{ width: '100%', height, position: 'relative' }}>
+    <div style={{ width: '100%', height, position: 'relative', minWidth: 0 }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie

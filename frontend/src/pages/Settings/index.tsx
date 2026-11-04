@@ -1,16 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Settings as SettingsIcon,
-  Building,
-  Sliders,
-  Database,
-  Info,
   Trash2,
   Save,
   CheckCircle,
-  AlertTriangle,
   RefreshCw
 } from 'lucide-react';
+import { canopyApi } from '../../utils/apiClient';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -28,14 +23,49 @@ export const SettingsPage: React.FC = () => {
   const [preferredUnit, setPreferredUnit] = useState<string>('tCO2e');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  // Backend health state
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'offline'>('checking');
+  const [backendInfo, setBackendInfo] = useState<{ service?: string; version?: string } | null>(null);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const health = await canopyApi.healthCheck();
+        setBackendStatus('connected');
+        setBackendInfo({ service: health.service, version: health.methodology_version });
+      } catch {
+        setBackendStatus('offline');
+        setBackendInfo(null);
+      }
+    };
+    checkHealth();
+  }, []);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCampus({
-      ...formData,
-      population: (formData.studentCount || 0) + (formData.facultyCount || 0) + (formData.staffCount || 0)
-    });
-    setSaveSuccessMsg('Campus profile successfully updated for this browser session.');
-    setTimeout(() => setSaveSuccessMsg(null), 3500);
+    try {
+      await canopyApi.updateMyCampus({
+        name: formData.name,
+        location: formData.location,
+        institution_name: formData.institution_name,
+        institution_type: formData.institution_type,
+        student_count: formData.studentCount,
+        faculty_count: formData.facultyCount,
+        staff_count: formData.staffCount,
+        campus_area_acres: formData.campusAreaAcres,
+        built_up_area_sq_m: formData.builtUpAreaSqM,
+        building_count: formData.buildingCount,
+        timezone: formData.timezone,
+      });
+      setCampus({
+        ...formData,
+        population: (formData.studentCount || 0) + (formData.facultyCount || 0) + (formData.staffCount || 0)
+      });
+      setSaveSuccessMsg('Campus profile successfully saved to backend database.');
+      setTimeout(() => setSaveSuccessMsg(null), 3500);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update campus profile on backend server.');
+    }
   };
 
   const handleClearSessionData = () => {
@@ -210,9 +240,11 @@ export const SettingsPage: React.FC = () => {
         title="3. Configured Emission Factors Catalogue"
         subtitle="Audit provenance, authority sources, and validation rules"
         action={
-          <Badge variant="warning">
-            Stage 2 Integration Pending
-          </Badge>
+          backendStatus === 'connected'
+            ? <Badge variant="success"><CheckCircle size={11} style={{ marginRight: '0.25rem' }} />Backend Connected</Badge>
+            : backendStatus === 'offline'
+            ? <Badge variant="danger">Backend Offline</Badge>
+            : <Badge variant="warning">Checking…</Badge>
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '0.5rem' }}>
@@ -295,18 +327,51 @@ export const SettingsPage: React.FC = () => {
               padding: '1rem',
               backgroundColor: 'var(--card-primary)',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border)',
+              border: backendStatus === 'connected' ? '1px solid rgba(78,135,82,0.4)' : '1px solid var(--border)',
               fontSize: '0.82rem'
             }}
           >
-            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-              Backend Integration (Stage 2 Ready)
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Backend Integration (Stage 3 Active)
+              {backendStatus === 'connected'
+                ? <Badge variant="success">Connected</Badge>
+                : backendStatus === 'offline'
+                ? <Badge variant="danger">Offline</Badge>
+                : <Badge variant="warning">Checking…</Badge>
+              }
             </div>
             <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <div>API Prefix: <code>/api/v1</code></div>
               <div>Backend Target: Python FastAPI + SQLAlchemy 2.x</div>
-              <div>Database: SQLite / PostgreSQL</div>
-              <div>Authentication: OAuth2 JWT Token</div>
+              <div>Database: SQLite (canopy.db)</div>
+              {backendInfo && (
+                <>
+                  <div>Service: <code>{backendInfo.service}</code></div>
+                  <div>Methodology: <code>{backendInfo.version}</code></div>
+                </>
+              )}
+              <div style={{ marginTop: '0.4rem' }}>
+                <button
+                  onClick={async () => {
+                    setBackendStatus('checking');
+                    try {
+                      const h = await canopyApi.healthCheck();
+                      setBackendStatus('connected');
+                      setBackendInfo({ service: h.service, version: h.methodology_version });
+                    } catch {
+                      setBackendStatus('offline');
+                      setBackendInfo(null);
+                    }
+                  }}
+                  style={{
+                    background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                    color: 'var(--sage)', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem 0.6rem',
+                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem'
+                  }}
+                >
+                  <RefreshCw size={11} /> Re-check Connection
+                </button>
+              </div>
             </div>
           </div>
         </div>

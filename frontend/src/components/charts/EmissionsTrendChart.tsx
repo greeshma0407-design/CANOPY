@@ -74,7 +74,7 @@ export const EmissionsTrendChart: React.FC<EmissionsTrendChartProps> = ({
   showTotalLine = true
 }) => {
   return (
-    <div style={{ width: '100%', height }}>
+    <div style={{ width: '100%', height, minWidth: 0 }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#232B24" />

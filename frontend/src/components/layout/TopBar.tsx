@@ -1,6 +1,8 @@
 import React from 'react';
-import { Search, Bell, Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Bell, Menu, LogOut } from 'lucide-react';
 import { ReportingPeriod } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 
 interface TopBarProps {
   onToggleMobile: () => void;
@@ -8,6 +10,7 @@ interface TopBarProps {
   selectedPeriodId: string;
   onSelectPeriod: (id: string) => void;
   pageTitle?: string;
+  campusName?: string;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -15,8 +18,26 @@ export const TopBar: React.FC<TopBarProps> = ({
   reportingPeriods,
   selectedPeriodId,
   onSelectPeriod,
-  pageTitle = 'Overview'
+  pageTitle = 'Overview',
+  campusName
 }) => {
+  const { user, role, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
+  const displayName = user?.full_name || 'Dr. Radhika Rao';
+  const displayRole = (role || 'ADMIN').replace(/_/g, ' ');
+  const initials = displayName
+    .split(' ')
+    .map(p => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'CR';
+
   return (
     <header
       style={{
@@ -60,7 +81,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 color: 'var(--text-primary)'
               }}
             >
-              Good morning, Dr. Rao 🌱
+              Welcome, {displayName} 🌱
             </span>
             <span
               style={{
@@ -84,7 +105,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   backgroundColor: '#4E8752'
                 }}
               />
-              MLRIT · Live
+              {campusName ? `${campusName.split(' ')[0]} · Live` : 'MLRIT · Live'}
             </span>
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -93,7 +114,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Right Controls: Search, Period Selector, Notifications, Avatar */}
+      {/* Right Controls: Search, Period Selector, Notifications, User Avatar & Logout */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         {/* Search bar */}
         <div
@@ -122,7 +143,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               padding: '0.45rem 0.85rem 0.45rem 2.2rem',
               color: 'var(--text-primary)',
               fontSize: '0.82rem',
-              width: '240px',
+              width: '220px',
               outline: 'none',
               transition: 'border-color var(--transition-fast), width var(--transition-fast)'
             }}
@@ -171,7 +192,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             alignItems: 'center',
             justifyContent: 'center'
           }}
-          title="Notifications: 2 items require review"
+          title="Notifications"
           aria-label="View notifications"
         >
           <Bell size={18} />
@@ -188,7 +209,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           />
         </button>
 
-        {/* User Profile Avatar */}
+        {/* User Profile Avatar & Role */}
         <div
           style={{
             display: 'flex',
@@ -213,7 +234,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               border: '2px solid var(--sage-dim)'
             }}
           >
-            RR
+            {initials}
           </div>
           <div className="topbar-user-info" style={{ display: 'flex', flexDirection: 'column' }}>
             <span
@@ -224,12 +245,51 @@ export const TopBar: React.FC<TopBarProps> = ({
                 lineHeight: 1.1
               }}
             >
-              Dr. Radhika Rao
+              {displayName}
             </span>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-              Sustainability Lead
+            <span
+              style={{
+                fontSize: '0.68rem',
+                color: 'var(--sage)',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em'
+              }}
+            >
+              {displayRole}
             </span>
           </div>
+
+          {/* Sign Out Button */}
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: 'transparent',
+              border: '1px solid rgba(165, 181, 139, 0.25)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-secondary)',
+              padding: '0.4rem 0.65rem',
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              marginLeft: '0.4rem',
+              transition: 'all var(--transition-fast)'
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(192, 87, 70, 0.5)';
+              (e.currentTarget as HTMLElement).style.color = '#FFAAA0';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(165, 181, 139, 0.25)';
+              (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+            }}
+            title="Sign out of Canopy"
+          >
+            <LogOut size={14} />
+            <span className="logout-btn-label">Sign Out</span>
+          </button>
         </div>
       </div>
 
@@ -242,8 +302,11 @@ export const TopBar: React.FC<TopBarProps> = ({
             display: none !important;
           }
         }
-        @media (max-width: 600px) {
+        @media (max-width: 650px) {
           .topbar-user-info {
+            display: none !important;
+          }
+          .logout-btn-label {
             display: none !important;
           }
         }

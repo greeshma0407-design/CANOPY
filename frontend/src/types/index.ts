@@ -3,3 +3,4 @@ export * from './emissions';
 export * from './scenario';
 export * from './recommendation';
 export * from './report';
+export * from './auth';

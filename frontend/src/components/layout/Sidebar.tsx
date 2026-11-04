@@ -4,27 +4,50 @@ import {
   LayoutDashboard,
   Calculator,
   Sliders,
+  BarChart3,
   Lightbulb,
+  FileText,
+  Users,
   Settings,
   X,
   MapPin
 } from 'lucide-react';
 import { CanopyLogo, CampusTreeIllustration } from '../../assets/BotanicalIcons';
+import { useAuth } from '../../context/AuthContext';
+import { UserRole } from '../../types';
 
 interface SidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  campusName?: string;
 }
 
-const navItems = [
+interface NavItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+  roles?: UserRole[];
+}
+
+const allNavItems: NavItem[] = [
   { path: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { path: '/calculator', label: 'Carbon Calculator', icon: Calculator },
-  { path: '/simulator', label: 'What-If Simulator', icon: Sliders },
-  { path: '/recommendations', label: 'Recommendations', icon: Lightbulb },
+  { path: '/calculator', label: 'Carbon Calculator', icon: Calculator, roles: ['ADMIN', 'CAMPUS_MANAGER', 'DATA_ENTRY_OPERATOR'] },
+  { path: '/simulator', label: 'What-If Simulator', icon: Sliders, roles: ['ADMIN', 'CAMPUS_MANAGER'] },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { path: '/recommendations', label: 'Recommendations', icon: Lightbulb, roles: ['ADMIN', 'CAMPUS_MANAGER', 'VIEWER'] },
+  { path: '/reports', label: 'Reports', icon: FileText, roles: ['ADMIN', 'CAMPUS_MANAGER', 'VIEWER'] },
+  { path: '/users', label: 'User Management', icon: Users, roles: ['ADMIN'] },
   { path: '/settings', label: 'Settings', icon: Settings }
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, campusName }) => {
+  const { role, user } = useAuth();
+
+  const navItems = allNavItems.filter(item => {
+    if (!item.roles) return true;
+    return role ? item.roles.includes(role) : true;
+  });
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -44,6 +67,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       <aside
         style={{
           width: '260px',
+          minWidth: '260px',
+          flexShrink: 0,
           backgroundColor: 'var(--bg-sidebar)',
           borderRight: '1px solid var(--border)',
           display: 'flex',
@@ -117,15 +142,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
         <nav style={{ flex: 1, padding: '1rem 0.85rem', overflowY: 'auto' }}>
           <div
             style={{
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
               padding: '0.4rem 0.75rem 0.6rem 0.75rem'
             }}
           >
-            Campus Navigation
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'var(--text-muted)'
+              }}
+            >
+              Campus Navigation
+            </span>
+            {role && (
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  padding: '0.1rem 0.4rem',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--card-elevated)',
+                  color: 'var(--sage)',
+                  fontWeight: 600
+                }}
+              >
+                {role}
+              </span>
+            )}
           </div>
           <ul style={{ listStyle: 'none' }}>
             {navItems.map(item => {
@@ -194,10 +241,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
                     textOverflow: 'ellipsis'
                   }}
                 >
-                  MLRIT Hyderabad
+                  {campusName || 'MLRIT Hyderabad'}
                 </div>
                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                  3,400 Campus Pop.
+                  {user ? user.email : 'Campus Pop. 3,400'}
                 </div>
               </div>
             </div>
@@ -218,14 +265,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       <style>{`
         @media (max-width: 900px) {
           aside.sidebar {
-            position: fixed;
+            position: fixed !important;
             left: 0;
             top: 0;
             bottom: 0;
             transform: translateX(-100%);
+            z-index: 1000;
           }
           aside.sidebar.mobile-open {
-            transform: translateX(0);
+            transform: translateX(0) !important;
           }
           .mobile-close-btn {
             display: block !important;

@@ -8,7 +8,8 @@ export interface Recommendation {
   id: string;
   title: string;
   category: EmissionCategory;
-  category_label: string;
+  category_label?: string;
+  priority?: number;
   impact_level: ImpactLevel;
   effort_level: EffortLevel;
   status: RecommendationStatus;

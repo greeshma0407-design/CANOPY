@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Sliders,
   RotateCcw,
   Save,
-  Trash2,
   TreePine,
   Sparkles,
   Info,
@@ -32,8 +30,9 @@ export const SimulatorPage: React.FC = () => {
     loadScenario,
     resetToBaseline,
     saveCurrentScenario,
-    deleteScenario,
-    baseline
+    isLiveBaseline,
+    isSavingToBackend,
+    backendSaveError
   } = useSimulator();
 
   // Save Modal State
@@ -48,10 +47,10 @@ export const SimulatorPage: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleConfirmSave = () => {
-    if (saveCurrentScenario(scenarioName, scenarioDesc)) {
+  const handleConfirmSave = async () => {
+    if (await saveCurrentScenario(scenarioName, scenarioDesc)) {
       setModalOpen(false);
-      setSaveSuccessMsg('Scenario saved successfully to browser storage.');
+      setSaveSuccessMsg(isSavingToBackend ? 'Scenario saved locally and syncing to backend…' : 'Scenario saved successfully.');
       setTimeout(() => setSaveSuccessMsg(null), 3500);
     }
   };
@@ -115,11 +114,13 @@ export const SimulatorPage: React.FC = () => {
             What-If Decarbonization Simulator
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            Clone baseline inventory (842.0 tCO2e) and evaluate intervention impacts in real time.
+            Clone baseline inventory ({projection.baseline_total.toFixed(1)} tCO2e{isLiveBaseline ? ' — live backend data' : ' — illustrative'}) and evaluate intervention impacts in real time.
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Badge variant="illustrative">Modelled Projections</Badge>
+          <Badge variant={isLiveBaseline ? 'success' : 'illustrative'}>
+            {isLiveBaseline ? 'Live Baseline Data' : 'Modelled Projections'}
+          </Badge>
           <Button
             variant="ghost"
             size="sm"
@@ -155,6 +156,16 @@ export const SimulatorPage: React.FC = () => {
         >
           <CheckCircle size={18} />
           <span>{saveSuccessMsg}</span>
+        </div>
+      )}
+
+      {backendSaveError && (
+        <div style={{
+          padding: '0.65rem 1rem', backgroundColor: 'rgba(212,163,115,0.1)', border: '1px solid rgba(212,163,115,0.3)',
+          borderRadius: 'var(--radius-md)', color: 'var(--ochre)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
+        }}>
+          <Info size={14} />
+          <span>{backendSaveError}</span>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { EmissionCategory, ScenarioAssumptions, ScenarioCategoryDelta } from '../types';
+import { ScenarioAssumptions, ScenarioCategoryDelta } from '../types';
 
 /**
  * Core formula: emissions_kg_co2e = activity_quantity × emission_factor_kg_co2e_per_activity_unit

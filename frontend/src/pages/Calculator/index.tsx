@@ -8,9 +8,7 @@ import {
   Save,
   CheckCircle,
   Info,
-  Calendar,
-  AlertCircle,
-  Trash
+  AlertCircle
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -20,10 +18,9 @@ import { Textarea } from '../../components/ui/Textarea';
 import { Badge } from '../../components/ui/Badge';
 import { useCalculator } from '../../hooks/useCalculator';
 import { useCampusData } from '../../hooks/useCampusData';
-import { EmissionCategory } from '../../types';
 
 export const CalculatorPage: React.FC = () => {
-  const { reportingPeriods } = useCampusData();
+  const { campus, selectedPeriod, reportingPeriods, isLiveBackend, refetch } = useCampusData();
   const {
     activeTab,
     setActiveTab,
@@ -40,25 +37,33 @@ export const CalculatorPage: React.FC = () => {
     calculateWaste,
     saveRecord,
     resetAll,
-    savedRecords
+    savedRecords,
+    isCalculating,
+    isSaving,
+    apiWarnings
   } = useCalculator();
 
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  const handleCalculateCurrent = () => {
+  const handleCalculateCurrent = async () => {
     if (activeTab === 'electricity') {
-      calculateElectricity();
+      await calculateElectricity();
     } else if (activeTab === 'transport') {
-      calculateTransport();
+      await calculateTransport();
     } else if (activeTab === 'waste') {
-      calculateWaste();
+      await calculateWaste();
     }
   };
 
-  const handleSave = () => {
-    const success = saveRecord('CY 2025');
+  const handleSave = async () => {
+    const periodId = selectedPeriod?.id || 'period-cy2025-01';
+    const periodLabel = selectedPeriod?.label || 'CY 2025';
+    const campusId = campus?.id || 'campus-mlrit-01';
+
+    const success = await saveRecord(campusId, periodId, periodLabel);
     if (success) {
-      setSaveSuccessMsg('Activity record saved locally for this browser session.');
+      setSaveSuccessMsg(`Activity record successfully saved to ${periodLabel} inventory in database.`);
+      await refetch();
       setTimeout(() => setSaveSuccessMsg(null), 4000);
     }
   };
@@ -118,7 +123,11 @@ export const CalculatorPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Badge variant="illustrative">Illustrative Factors Applied</Badge>
+          {isLiveBackend ? (
+            <Badge variant="success">Backend Factor Engine</Badge>
+          ) : (
+            <Badge variant="illustrative">Illustrative Factors Applied</Badge>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -146,6 +155,25 @@ export const CalculatorPage: React.FC = () => {
         >
           <CheckCircle size={18} />
           <span>{saveSuccessMsg}</span>
+        </div>
+      )}
+
+      {errors.save && (
+        <div
+          style={{
+            padding: '0.85rem 1.25rem',
+            backgroundColor: 'rgba(217, 83, 79, 0.18)',
+            border: '1px solid rgba(217, 83, 79, 0.4)',
+            borderRadius: 'var(--radius-md)',
+            color: '#ff8585',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.65rem',
+            fontSize: '0.9rem'
+          }}
+        >
+          <AlertCircle size={18} />
+          <span>{errors.save}</span>
         </div>
       )}
 
@@ -241,6 +269,7 @@ export const CalculatorPage: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={handleCalculateCurrent}
+                loading={isCalculating}
                 icon={<CalcIcon size={16} />}
                 style={{ marginTop: '0.5rem' }}
               >
@@ -302,6 +331,7 @@ export const CalculatorPage: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={handleCalculateCurrent}
+                loading={isCalculating}
                 icon={<CalcIcon size={16} />}
                 style={{ marginTop: '0.5rem' }}
               >
@@ -356,6 +386,7 @@ export const CalculatorPage: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={handleCalculateCurrent}
+                loading={isCalculating}
                 icon={<CalcIcon size={16} />}
                 style={{ marginTop: '0.5rem' }}
               >
@@ -376,9 +407,10 @@ export const CalculatorPage: React.FC = () => {
                   variant="primary"
                   size="sm"
                   onClick={handleSave}
+                  loading={isSaving}
                   icon={<Save size={15} />}
                 >
-                  Save to Session
+                  Save to Inventory
                 </Button>
               )
             }
@@ -404,6 +436,29 @@ export const CalculatorPage: React.FC = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {/* Result Total KPI Summary */}
+                {apiWarnings.length > 0 && (
+                  <div
+                    style={{
+                      padding: '0.75rem 1rem',
+                      backgroundColor: 'rgba(212, 163, 115, 0.15)',
+                      border: '1px solid var(--ochre)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--ochre)',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.25rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 600 }}>
+                      <AlertCircle size={15} /> Calculation Engine Warnings:
+                    </div>
+                    {apiWarnings.map((w, idx) => (
+                      <div key={idx} style={{ marginLeft: '1.25rem' }}>• {w}</div>
+                    ))}
+                  </div>
+                )}
+
                 <div
                   style={{
                     display: 'flex',
