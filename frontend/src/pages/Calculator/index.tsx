@@ -515,7 +515,11 @@ export const CalculatorPage: React.FC = () => {
                           Activity Quantity: <strong style={{ color: 'var(--text-primary)' }}>{line.quantity.toLocaleString()} {line.unit}</strong>
                         </div>
                         <div>
-                          Factor Applied: <strong style={{ color: 'var(--ochre)' }}>{line.factor_value} {line.factor_unit}</strong>
+                          Factor Applied: <strong style={{ color: line.factor_value !== null ? 'var(--ochre)' : 'var(--text-muted)' }}>
+                            {line.factor_value !== null && line.factor_value !== undefined
+                              ? `${line.factor_value} ${line.factor_unit}`
+                              : 'No factor found — see warnings'}
+                          </strong>
                         </div>
                         <div style={{ gridColumn: 'span 2' }}>
                           Provenance: <span style={{ color: 'var(--text-muted)' }}>{line.factor_source}</span>

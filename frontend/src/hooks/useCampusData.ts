@@ -40,7 +40,6 @@ export function useCampusData() {
   const [error, setError] = useState<string | null>(null);
   const [isLiveBackend, setIsLiveBackend] = useState<boolean>(false);
 
-  // Live data states
   const [totalEmissions_t_co2e, setTotalEmissions] = useState<number>(0);
   const [categoryBreakdowns, setCategoryBreakdowns] = useState<CategoryBreakdown[]>([]);
   const [monthlyEmissions, setMonthlyEmissions] = useState<MonthlyEmissions[]>([]);
@@ -115,7 +114,7 @@ export function useCampusData() {
     setError(null);
 
     try {
-      // 1. Fetch summary from live backend
+      // 1. Fetch summary from live backend (authoritative emission totals from DB factors)
       const summary = await canopyApi.getSummary(activeCampusId, activePeriodId, 'IN-Telangana');
       setIsLiveBackend(true);
 
@@ -123,7 +122,7 @@ export function useCampusData() {
       setTotalEmissions(totalT);
       setCompletenessStatus(summary.completeness_status);
 
-      // Build category breakdowns from backend summary
+      // Build category breakdowns from backend summary categories (kgCO2e → tCO2e)
       const elecKg = summary.categories['electricity'] || 0;
       const transKg = summary.categories['transport'] || 0;
       const wasteKg = summary.categories['waste'] || 0;
@@ -133,7 +132,7 @@ export function useCampusData() {
       const wasteT = Math.round((wasteKg / 1000) * 10) / 10;
 
       const sumT = elecT + transT + wasteT;
-      const elecPct = sumT > 0 ? Math.round((elecT / sumT) * 100) : 0;
+      const elecPct  = sumT > 0 ? Math.round((elecT  / sumT) * 100) : 0;
       const transPct = sumT > 0 ? Math.round((transT / sumT) * 100) : 0;
       const wastePct = sumT > 0 ? Math.max(0, 100 - elecPct - transPct) : 0;
 
@@ -167,48 +166,75 @@ export function useCampusData() {
         },
       ]);
 
-      // 2. Fetch records to build accurate month-by-month trends
+      // 2. Build month-by-month trends from activity records.
+      // FIX: We NO LONGER recalculate emissions client-side with hardcoded factors.
+      // Instead we use the backend's category totals and distribute them proportionally
+      // across months based on activity quantity recorded per month. This keeps
+      // the dashboard consistent with the Calculator (both use backend DB factors).
       try {
         const records: ActivityRecordRead[] = await canopyApi.getRecords(activeCampusId, activePeriodId);
+
+        // Group records by month (derived from notes field for demo data,
+        // or from created_at for user-entered records)
         const monthsData: MonthlyEmissions[] = MONTH_NAMES.map((mName, i) => {
           const mNum = i + 1;
           const monthCode = `2025-${mNum.toString().padStart(2, '0')}`;
 
-          let mElec = 0;
-          let mTrans = 0;
-          let mWaste = 0;
+          let mElecKwh = 0;
+          let mTransPkm = 0;
+          let mWasteT = 0;
 
+          // Identify which records belong to this month
           if (records && records.length > 0) {
             for (const r of records) {
               const notes = r.notes || '';
-              const matchesMonth = notes.includes(MONTH_SHORTS[i]) || notes.includes(mName);
+              const matchesMonth =
+                notes.includes(MONTH_SHORTS[i]) ||
+                notes.includes(mName) ||
+                (r.created_at && r.created_at.startsWith(monthCode));
+
               if (matchesMonth) {
                 for (const item of r.activity_items) {
-                  let factor = 0;
-                  if (item.activity_type === 'grid_electricity') factor = 0.82;
-                  else if (item.activity_type === 'solar_electricity') factor = 0.048;
-                  else if (item.activity_type === 'bus_diesel') factor = 0.089;
-                  else if (item.activity_type === 'car_petrol') factor = 0.192;
-                  else if (item.activity_type === 'motorcycle') factor = 0.113;
-                  else if (item.activity_type === 'auto_cng') factor = 0.045;
-                  else if (item.activity_type === 'organic_waste') factor = 580.0;
-                  else if (item.activity_type === 'organic_waste_compost') factor = 100.0;
-                  else if (item.activity_type === 'mixed_msw') factor = 467.0;
-
-                  const itemT = (item.quantity * factor) / 1000;
-                  if (r.category === 'electricity') mElec += itemT;
-                  else if (r.category === 'transport') mTrans += itemT;
-                  else if (r.category === 'waste') mWaste += itemT;
+                  if (r.category === 'electricity') {
+                    mElecKwh += item.quantity;
+                  } else if (r.category === 'transport') {
+                    mTransPkm += item.quantity;
+                  } else if (r.category === 'waste') {
+                    mWasteT += item.quantity;
+                  }
                 }
               }
             }
           }
 
-          const mTotal = Math.round((mElec + mTrans + mWaste) * 10) / 10;
+          // Compute total activity quantities for proportional allocation
           return {
+            _elecKwh: mElecKwh,
+            _transPkm: mTransPkm,
+            _wasteT: mWasteT,
             month: monthCode,
             month_short: MONTH_SHORTS[i],
             month_name: mName,
+          };
+        }) as any[];
+
+        // Compute totals across all months for proportional scaling
+        const totalElecKwh  = monthsData.reduce((s: number, m: any) => s + m._elecKwh, 0);
+        const totalTransPkm = monthsData.reduce((s: number, m: any) => s + m._transPkm, 0);
+        const totalWasteT   = monthsData.reduce((s: number, m: any) => s + m._wasteT, 0);
+
+        // Scale back-calculate per-month emissions from authoritative backend totals.
+        // This avoids hardcoded factors while still showing meaningful monthly trends.
+        const finalMonths: MonthlyEmissions[] = monthsData.map((m: any) => {
+          const mElec  = totalElecKwh  > 0 ? (m._elecKwh  / totalElecKwh)  * elecT  : 0;
+          const mTrans = totalTransPkm > 0 ? (m._transPkm / totalTransPkm) * transT : 0;
+          const mWaste = totalWasteT   > 0 ? (m._wasteT   / totalWasteT)   * wasteT : 0;
+
+          const mTotal = Math.round((mElec + mTrans + mWaste) * 10) / 10;
+          return {
+            month: m.month,
+            month_short: m.month_short,
+            month_name: m.month_name,
             electricity_t_co2e: Math.round(mElec * 10) / 10,
             transport_t_co2e: Math.round(mTrans * 10) / 10,
             waste_t_co2e: Math.round(mWaste * 10) / 10,
@@ -217,9 +243,11 @@ export function useCampusData() {
           };
         });
 
-        setMonthlyEmissions(monthsData);
+        setMonthlyEmissions(finalMonths);
       } catch (recErr) {
         console.warn('[CANOPY API] Failed to fetch monthly record breakdown:', recErr);
+        // Don't fail the whole fetch — just leave monthly chart empty
+        setMonthlyEmissions([]);
       }
     } catch (err: unknown) {
       console.warn('[CANOPY API] Live fetch error, using fallback:', err);

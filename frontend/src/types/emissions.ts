@@ -28,8 +28,8 @@ export interface ActivityItem {
   subcategory?: string;
   treatment_route?: string;
   mode?: string;
-  factor_id: string;
-  factor_value: number;
+  factor_id?: string | null;
+  factor_value?: number | null;
   emissions_kg_co2e: number;
   emissions_t_co2e: number;
   is_illustrative: boolean;
@@ -57,8 +57,8 @@ export interface CalculationLine {
   description: string;
   quantity: number;
   unit: string;
-  factor_id: string;
-  factor_value: number;
+  factor_id: string | null;
+  factor_value: number | null;   // null means no factor found in DB
   factor_unit: string;
   factor_source: string;
   methodology: string;
@@ -67,6 +67,8 @@ export interface CalculationLine {
   is_illustrative: boolean;
   notes?: string;
   assumptions?: string;
+  /** 'calculated' | 'missing_factor' | 'backend_offline' */
+  status?: string;
 }
 
 export interface CalculationResult {

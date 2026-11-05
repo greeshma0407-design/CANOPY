@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { CalculationLine, ActivityRecord, EmissionCategory } from '../types';
-import { mockEmissionFactors } from '../data/emissionFactors';
 import { useLocalStorage } from './useLocalStorage';
 import { canopyApi, PreviewItemInput, ActivityRecordCreate } from '../utils/apiClient';
 import { useAuth } from '../context/AuthContext';
@@ -29,11 +28,35 @@ export interface WasteInput {
   notes: string;
 }
 
+// ---------------------------------------------------------------------------
+// Activity type registry — single source of truth for all backend mappings.
+// These strings must exactly match the activity_type values in the DB factors.
+// ---------------------------------------------------------------------------
+const ELEC_ACTIVITY_TYPES: Record<string, string> = {
+  grid:  'grid_electricity',
+  solar: 'solar_electricity',
+};
+
+const TRANS_ACTIVITY_TYPES: Record<string, { type: string; unit: 'passenger_km' | 'vehicle_km' }> = {
+  bus:        { type: 'bus_diesel',      unit: 'passenger_km' },
+  car:        { type: 'car_petrol',      unit: 'vehicle_km'   },
+  twowheeler: { type: 'motorcycle',      unit: 'vehicle_km'   },
+  auto:       { type: 'auto_cng',        unit: 'passenger_km' },
+  cycling:    { type: 'walking_cycling', unit: 'passenger_km' }, // FIX: was incorrectly 'bus_diesel'
+};
+
+function getWasteActivityType(wasteType: string, treatmentRoute: string): string {
+  if (treatmentRoute === 'compost') return 'organic_waste_compost';
+  if (treatmentRoute === 'recycle') return 'organic_waste';
+  if (wasteType === 'mixed') return 'mixed_msw';
+  return 'organic_waste';
+}
+
+
 export function useCalculator() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<EmissionCategory>('electricity');
 
-  // Input states
   const [elecForm, setElecForm] = useState<ElectricityInput>({
     periodId: 'period-2025',
     monthlyKwh: 48000,
@@ -58,33 +81,27 @@ export function useCalculator() {
     notes: 'Mess and food court unsegregated waste haul'
   });
 
-  // Saved records in session
   const [savedRecords, setSavedRecords] = useLocalStorage<ActivityRecord[]>('canopy_session_records', []);
-
-  // Calculation results
   const [calculatedLines, setCalculatedLines] = useState<CalculationLine[]>([]);
   const [lastCalculatedCategory, setLastCalculatedCategory] = useState<EmissionCategory | null>(null);
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-
-  // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiWarnings, setApiWarnings] = useState<string[]>([]);
 
+  // ---------------------------------------------------------------------------
   // Electricity Calculation via Backend API
+  // ---------------------------------------------------------------------------
   const calculateElectricity = async () => {
     const newErrors: Record<string, string> = {};
     if (elecForm.monthlyKwh <= 0 || isNaN(elecForm.monthlyKwh)) {
       newErrors.monthlyKwh = 'Electricity consumption must be greater than 0 kWh.';
     }
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return null;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return null; }
     setErrors({});
     setIsCalculating(true);
 
-    const activityType = elecForm.sourceType === 'solar' ? 'solar_electricity' : 'grid_electricity';
+    const activityType = ELEC_ACTIVITY_TYPES[elecForm.sourceType] ?? 'grid_electricity';
     const items: PreviewItemInput[] = [{
       activity_type: activityType,
       quantity: elecForm.monthlyKwh,
@@ -98,56 +115,64 @@ export function useCalculator() {
       setApiWarnings(res.warnings);
 
       const firstLine = res.lines[0];
+
+      // FIX: Use ?? (nullish coalescing) for BOTH emissions AND factor value.
+      // Never display a hardcoded factor when backend reports missing_factor.
       const kg = firstLine?.emissions_kg_co2e ?? 0;
-      const t = firstLine?.emissions_tco2e ?? (kg / 1000);
+      const t  = firstLine?.emissions_tco2e   ?? (kg / 1000);
+      const factorVal = firstLine?.factor_value ?? null;  // null = no factor found
 
       const line: CalculationLine = {
         id: `calc-elec-${Date.now()}`,
         category: 'electricity',
-        description: `Electricity: ${elecForm.sourceType === 'solar' ? 'On-site Rooftop Solar PV' : 'Grid Electricity (CEA Baseline)'}`,
+        description: elecForm.sourceType === 'solar'
+          ? 'Electricity: On-site Rooftop Solar PV'
+          : 'Electricity: Grid Electricity (CEA Baseline)',
         quantity: elecForm.monthlyKwh,
         unit: 'kWh',
-        factor_id: firstLine?.factor_id || (elecForm.sourceType === 'solar' ? 'ef-elec-solar-onsite-v1' : 'ef-elec-india-telangana-2024-v1'),
-        factor_value: firstLine?.factor_value || (elecForm.sourceType === 'solar' ? 0.048 : 0.82),
+        factor_id: firstLine?.factor_id ?? null,
+        factor_value: factorVal,
         factor_unit: 'kgCO2e/kWh',
-        factor_source: elecForm.sourceType === 'solar' ? 'Lifecycle rooftop solar estimation' : 'CEA Baseline Database v19',
+        factor_source: firstLine?.factor_id
+          ? (elecForm.sourceType === 'solar'
+              ? 'ILLUSTRATIVE — Lifecycle estimate (see factor notes)'
+              : 'ILLUSTRATIVE — CEA Baseline Database v19 region approximate')
+          : 'No matching factor found in database',
         methodology: 'Market-based Scope 2',
         emissions_kg_co2e: kg,
         emissions_t_co2e: t,
-        is_illustrative: false,
+        is_illustrative: true,
         notes: elecForm.notes,
         assumptions: elecForm.sourceType === 'solar'
-          ? 'Explicit solar PV factor applied (0.048 kgCO2e/kWh) — not assumed zero-emission.'
-          : 'Applies CEA v19 regional grid factor for Telangana state.'
+          ? 'Illustrative lifecycle solar PV factor — not assumed zero-emission.'
+          : 'Applies illustrative CEA v19 regional grid factor for Telangana state.',
+        status: firstLine?.status ?? 'missing_factor',
       };
 
       setCalculatedLines(prev => [line, ...prev.filter(l => l.category !== 'electricity')]);
       setLastCalculatedCategory('electricity');
       return line;
     } catch {
-      // Local fallback calculation if backend temporarily offline
-      const factorValue = elecForm.sourceType === 'solar' ? 0.048 : 0.82;
-      const kg = Math.round(elecForm.monthlyKwh * factorValue * 100) / 100;
-      const t = Math.round((kg / 1000) * 1000) / 1000;
-
+      // Backend unreachable — show zero with explicit offline indicator
       const line: CalculationLine = {
         id: `calc-elec-${Date.now()}`,
         category: 'electricity',
-        description: `Electricity: ${elecForm.sourceType === 'solar' ? 'On-site Rooftop Solar PV' : 'Grid Electricity (CEA Baseline)'}`,
+        description: `Electricity: ${elecForm.sourceType === 'solar' ? 'On-site Rooftop Solar PV' : 'Grid Electricity'} [Backend Offline]`,
         quantity: elecForm.monthlyKwh,
         unit: 'kWh',
-        factor_id: elecForm.sourceType === 'solar' ? 'ef-elec-solar-onsite-v1' : 'ef-elec-india-telangana-2024-v1',
-        factor_value: factorValue,
+        factor_id: null,
+        factor_value: null,
         factor_unit: 'kgCO2e/kWh',
-        factor_source: 'CEA Baseline Database v19 approximate',
-        methodology: 'Market-based Scope 2',
-        emissions_kg_co2e: kg,
-        emissions_t_co2e: t,
+        factor_source: 'Backend unreachable — no authoritative factor applied',
+        methodology: 'N/A',
+        emissions_kg_co2e: 0,
+        emissions_t_co2e: 0,
         is_illustrative: true,
         notes: elecForm.notes,
-        assumptions: 'Calculated using fallback factor.'
+        assumptions: 'Backend offline. Zero result — not a real calculation.',
+        status: 'backend_offline',
       };
-
+      setApiWarnings(['Backend is currently unreachable. Emissions cannot be calculated without a server connection.']);
       setCalculatedLines(prev => [line, ...prev.filter(l => l.category !== 'electricity')]);
       setLastCalculatedCategory('electricity');
       return line;
@@ -156,42 +181,32 @@ export function useCalculator() {
     }
   };
 
+  // ---------------------------------------------------------------------------
   // Transport Calculation via Backend API
+  // ---------------------------------------------------------------------------
   const calculateTransport = async () => {
     const newErrors: Record<string, string> = {};
     if (transForm.quantity <= 0 || isNaN(transForm.quantity)) {
       newErrors.quantity = 'Distance / passenger-km must be greater than 0.';
     }
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return null;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return null; }
     setErrors({});
     setIsCalculating(true);
 
-    let activityType = 'bus_diesel';
-    let unit = 'passenger_km';
-    let desc = 'Campus Bus Fleet (Diesel)';
+    // FIX: Use registry — cycling now correctly maps to 'walking_cycling', not 'bus_diesel'
+    const mapping = TRANS_ACTIVITY_TYPES[transForm.mode] ?? TRANS_ACTIVITY_TYPES['bus'];
+    const activityType = mapping.type;
+    const unit = mapping.unit;
 
-    if (transForm.mode === 'car') {
-      activityType = 'car_petrol';
-      unit = 'vehicle_km';
-      desc = 'Faculty & Staff Car Commute (Petrol/Diesel)';
-    } else if (transForm.mode === 'twowheeler') {
-      activityType = 'motorcycle';
-      unit = 'vehicle_km';
-      desc = 'Motorcycle & Scooter Commute';
-    } else if (transForm.mode === 'auto') {
-      activityType = 'auto_cng';
-      unit = 'passenger_km';
-      desc = 'Auto-Rickshaw Shared Transit (CNG)';
-    } else if (transForm.mode === 'cycling') {
-      activityType = 'bus_diesel';
-      unit = 'passenger_km';
-      desc = 'Walking / Cycling (Active Transit)';
-    }
+    const modeLabels: Record<string, string> = {
+      bus:        'Campus Bus Fleet (Diesel)',
+      car:        'Faculty & Staff Car Commute (Petrol/Diesel)',
+      twowheeler: 'Motorcycle & Scooter Commute',
+      auto:       'Auto-Rickshaw Shared Transit (CNG)',
+      cycling:    'Walking / Cycling (Active Transit)',
+    };
+    const desc = modeLabels[transForm.mode] ?? 'Transport Activity';
 
-    const isCycling = transForm.mode === 'cycling';
     const items: PreviewItemInput[] = [{
       activity_type: activityType,
       quantity: transForm.quantity,
@@ -205,52 +220,54 @@ export function useCalculator() {
       setApiWarnings(res.warnings);
 
       const firstLine = res.lines[0];
-      const kg = isCycling ? 0 : (firstLine?.emissions_kg_co2e ?? 0);
-      const t = isCycling ? 0 : (firstLine?.emissions_tco2e ?? (kg / 1000));
+      const kg = firstLine?.emissions_kg_co2e ?? 0;
+      const t  = firstLine?.emissions_tco2e   ?? (kg / 1000);
+      const factorVal = firstLine?.factor_value ?? null;
 
       const line: CalculationLine = {
         id: `calc-trans-${Date.now()}`,
         category: 'transport',
         description: desc,
         quantity: transForm.quantity,
-        unit: unit === 'passenger_km' ? 'passenger-km' : 'vehicle-km',
-        factor_id: firstLine?.factor_id || `ef-trans-${transForm.mode}-v1`,
-        factor_value: isCycling ? 0 : (firstLine?.factor_value || 0.089),
+        unit: unit === 'vehicle_km' ? 'vehicle-km' : 'passenger-km',
+        factor_id: firstLine?.factor_id ?? null,
+        factor_value: factorVal,
         factor_unit: `kgCO2e/${unit === 'passenger_km' ? 'p-km' : 'v-km'}`,
-        factor_source: 'ARAI / CPCB composite approximation',
+        factor_source: firstLine?.factor_id
+          ? 'ILLUSTRATIVE — ARAI/CPCB composite approximation'
+          : 'No matching factor found in database',
         methodology: 'Modal distance-based factor',
         emissions_kg_co2e: kg,
         emissions_t_co2e: t,
-        is_illustrative: false,
+        is_illustrative: true,
         notes: transForm.notes,
-        assumptions: `Based on ${transForm.tripsCount || 1} logged trips using backend factor.`
+        assumptions: `Based on ${transForm.tripsCount || 1} logged trips using backend factor.`,
+        status: firstLine?.status ?? 'missing_factor',
       };
 
       setCalculatedLines(prev => [line, ...prev.filter(l => l.category !== 'transport')]);
       setLastCalculatedCategory('transport');
       return line;
     } catch {
-      const fallbackFactor = transForm.mode === 'car' ? 0.192 : transForm.mode === 'twowheeler' ? 0.113 : transForm.mode === 'auto' ? 0.045 : 0.089;
-      const kg = isCycling ? 0 : (Math.round(transForm.quantity * fallbackFactor * 100) / 100);
-      const t = Math.round((kg / 1000) * 1000) / 1000;
-
       const line: CalculationLine = {
         id: `calc-trans-${Date.now()}`,
         category: 'transport',
-        description: desc,
+        description: `${desc} [Backend Offline]`,
         quantity: transForm.quantity,
-        unit: unit,
-        factor_id: `ef-trans-${transForm.mode}-v1`,
-        factor_value: fallbackFactor,
-        factor_unit: `kgCO2e/${unit}`,
-        factor_source: 'ARAI / CPCB illustrative factor',
-        methodology: 'Distance-based Scope 3',
-        emissions_kg_co2e: kg,
-        emissions_t_co2e: t,
+        unit: unit === 'vehicle_km' ? 'vehicle-km' : 'passenger-km',
+        factor_id: null,
+        factor_value: null,
+        factor_unit: `kgCO2e/${unit === 'passenger_km' ? 'p-km' : 'v-km'}`,
+        factor_source: 'Backend unreachable — no authoritative factor applied',
+        methodology: 'N/A',
+        emissions_kg_co2e: 0,
+        emissions_t_co2e: 0,
         is_illustrative: true,
-        notes: transForm.notes
+        notes: transForm.notes,
+        assumptions: 'Backend offline. Zero result — not a real calculation.',
+        status: 'backend_offline',
       };
-
+      setApiWarnings(['Backend is currently unreachable. Emissions cannot be calculated without a server connection.']);
       setCalculatedLines(prev => [line, ...prev.filter(l => l.category !== 'transport')]);
       setLastCalculatedCategory('transport');
       return line;
@@ -259,29 +276,26 @@ export function useCalculator() {
     }
   };
 
+  // ---------------------------------------------------------------------------
   // Waste Calculation via Backend API
+  // ---------------------------------------------------------------------------
   const calculateWaste = async () => {
     const newErrors: Record<string, string> = {};
     if (wasteForm.quantityTonnes <= 0 || isNaN(wasteForm.quantityTonnes)) {
       newErrors.quantityTonnes = 'Waste quantity must be greater than 0 tonnes.';
     }
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return null;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return null; }
     setErrors({});
     setIsCalculating(true);
 
-    let activityType = 'organic_waste';
-    let desc = 'Municipal Solid Waste (Landfill)';
+    const activityType = getWasteActivityType(wasteForm.wasteType, wasteForm.treatmentRoute);
 
-    if (wasteForm.treatmentRoute === 'compost') {
-      activityType = 'organic_waste_compost';
-      desc = 'Organic Food & Mess Waste (Aerobic Composting)';
-    } else if (wasteForm.wasteType === 'mixed') {
-      activityType = 'mixed_msw';
-      desc = 'Mixed Municipal Solid Waste (Landfill)';
-    }
+    const wasteDescriptions: Record<string, string> = {
+      organic_waste:          'Municipal Solid Waste (Landfill)',
+      mixed_msw:              'Mixed Municipal Solid Waste (Landfill)',
+      organic_waste_compost:  'Organic Food & Mess Waste (Aerobic Composting)',
+    };
+    const desc = wasteDescriptions[activityType] ?? 'Solid Waste Stream';
 
     const items: PreviewItemInput[] = [{
       activity_type: activityType,
@@ -297,7 +311,8 @@ export function useCalculator() {
 
       const firstLine = res.lines[0];
       const kg = firstLine?.emissions_kg_co2e ?? 0;
-      const t = firstLine?.emissions_tco2e ?? (kg / 1000);
+      const t  = firstLine?.emissions_tco2e   ?? (kg / 1000);
+      const factorVal = firstLine?.factor_value ?? null;
 
       const line: CalculationLine = {
         id: `calc-waste-${Date.now()}`,
@@ -305,43 +320,44 @@ export function useCalculator() {
         description: desc,
         quantity: wasteForm.quantityTonnes,
         unit: 'tonne',
-        factor_id: firstLine?.factor_id || 'ef-waste-organic-landfill-v1',
-        factor_value: firstLine?.factor_value || 580.0,
+        factor_id: firstLine?.factor_id ?? null,
+        factor_value: factorVal,
         factor_unit: 'kgCO2e/tonne',
-        factor_source: 'IPCC 2006 Tier 1 waste model',
-        methodology: 'Methane commitment disposal factor',
+        factor_source: firstLine?.factor_id
+          ? 'ILLUSTRATIVE — IPCC 2006 Tier 1 approximation'
+          : 'No matching factor found in database',
+        methodology: 'Scope 3 Solid Waste',
         emissions_kg_co2e: kg,
         emissions_t_co2e: t,
-        is_illustrative: false,
+        is_illustrative: true,
         notes: wasteForm.notes,
-        assumptions: `Evaluated using backend factor: ${firstLine?.factor_value ?? 580} kgCO2e/tonne.`
+        assumptions: `Evaluated using backend factor: ${factorVal !== null ? factorVal + ' kgCO2e/tonne' : 'N/A — factor not found'}.`,
+        status: firstLine?.status ?? 'missing_factor',
       };
 
       setCalculatedLines(prev => [line, ...prev.filter(l => l.category !== 'waste')]);
       setLastCalculatedCategory('waste');
       return line;
     } catch {
-      const fallbackFactor = wasteForm.treatmentRoute === 'compost' ? 100.0 : wasteForm.wasteType === 'mixed' ? 467.0 : 580.0;
-      const kg = Math.round(wasteForm.quantityTonnes * fallbackFactor * 100) / 100;
-      const t = Math.round((kg / 1000) * 1000) / 1000;
-
       const line: CalculationLine = {
         id: `calc-waste-${Date.now()}`,
         category: 'waste',
-        description: desc,
+        description: `${desc} [Backend Offline]`,
         quantity: wasteForm.quantityTonnes,
         unit: 'tonne',
-        factor_id: 'ef-waste-organic-landfill-v1',
-        factor_value: fallbackFactor,
+        factor_id: null,
+        factor_value: null,
         factor_unit: 'kgCO2e/tonne',
-        factor_source: 'IPCC 2006 Tier 1 model',
-        methodology: 'Scope 3 Solid Waste',
-        emissions_kg_co2e: kg,
-        emissions_t_co2e: t,
+        factor_source: 'Backend unreachable — no authoritative factor applied',
+        methodology: 'N/A',
+        emissions_kg_co2e: 0,
+        emissions_t_co2e: 0,
         is_illustrative: true,
-        notes: wasteForm.notes
+        notes: wasteForm.notes,
+        assumptions: 'Backend offline. Zero result — not a real calculation.',
+        status: 'backend_offline',
       };
-
+      setApiWarnings(['Backend is currently unreachable. Emissions cannot be calculated without a server connection.']);
       setCalculatedLines(prev => [line, ...prev.filter(l => l.category !== 'waste')]);
       setLastCalculatedCategory('waste');
       return line;
@@ -350,7 +366,9 @@ export function useCalculator() {
     }
   };
 
+  // ---------------------------------------------------------------------------
   // Save current lines to backend and local session records
+  // ---------------------------------------------------------------------------
   const saveRecord = async (
     targetCampusId?: string,
     targetPeriodId?: string,
@@ -363,9 +381,18 @@ export function useCalculator() {
     const periodId = targetPeriodId || 'period-cy2025-01';
 
     const totalKg = calculatedLines.reduce((acc, l) => acc + l.emissions_kg_co2e, 0);
-    const totalT = calculatedLines.reduce((acc, l) => acc + l.emissions_t_co2e, 0);
+    const totalT  = calculatedLines.reduce((acc, l) => acc + l.emissions_t_co2e, 0);
 
-    // 1. Submit to real backend POST /api/v1/records
+    const getBackendActivityType = (line: CalculationLine): string => {
+      if (line.category === 'electricity') return ELEC_ACTIVITY_TYPES[elecForm.sourceType] ?? 'grid_electricity';
+      if (line.category === 'transport')   return TRANS_ACTIVITY_TYPES[transForm.mode]?.type ?? 'bus_diesel';
+      if (line.category === 'waste')       return getWasteActivityType(wasteForm.wasteType, wasteForm.treatmentRoute);
+      return 'unknown';
+    };
+
+    const getBackendUnit = (line: CalculationLine): string =>
+      line.unit.replace('passenger-km', 'passenger_km').replace('vehicle-km', 'vehicle_km');
+
     try {
       const recordPayload: ActivityRecordCreate = {
         campus_id: campusId,
@@ -375,13 +402,11 @@ export function useCalculator() {
         notes: `Entry for ${reportingPeriodLabel} — ${activeTab}`,
         data_source: 'Canopy Carbon Calculator',
         items: calculatedLines.map(l => ({
-          activity_type: l.category === 'electricity' ? (elecForm.sourceType === 'solar' ? 'solar_electricity' : 'grid_electricity')
-                       : l.category === 'transport' ? (transForm.mode === 'car' ? 'car_petrol' : transForm.mode === 'twowheeler' ? 'motorcycle' : transForm.mode === 'auto' ? 'auto_cng' : 'bus_diesel')
-                       : (wasteForm.treatmentRoute === 'compost' ? 'organic_waste_compost' : wasteForm.wasteType === 'mixed' ? 'mixed_msw' : 'organic_waste'),
+          activity_type: getBackendActivityType(l),
           quantity: l.quantity,
-          unit: l.unit === 'passenger-km' ? 'passenger_km' : l.unit === 'vehicle-km' ? 'vehicle_km' : l.unit,
+          unit: getBackendUnit(l),
           subcategory: activeTab,
-          factor_id: l.factor_id
+          factor_id: l.factor_id ?? undefined,
         }))
       };
 
@@ -395,7 +420,6 @@ export function useCalculator() {
 
     setIsSaving(false);
 
-    // 2. Also save to session records for instant UI update
     const newRecord: ActivityRecord = {
       id: `session-rec-${Date.now()}`,
       campus_id: campusId,
@@ -411,11 +435,11 @@ export function useCalculator() {
       items: calculatedLines.map(l => ({
         id: `item-${Date.now()}-${l.id}`,
         activity_record_id: `session-rec-${Date.now()}`,
-        activity_type: l.category,
+        activity_type: getBackendActivityType(l),
         quantity: l.quantity,
-        unit: l.unit,
-        factor_id: l.factor_id,
-        factor_value: l.factor_value,
+        unit: getBackendUnit(l),
+        factor_id: l.factor_id ?? undefined,
+        factor_value: l.factor_value ?? undefined,
         emissions_kg_co2e: l.emissions_kg_co2e,
         emissions_t_co2e: l.emissions_t_co2e,
         is_illustrative: l.is_illustrative,
@@ -428,27 +452,9 @@ export function useCalculator() {
   };
 
   const resetAll = () => {
-    setElecForm({
-      periodId: 'period-2025',
-      monthlyKwh: 48000,
-      sourceType: 'grid',
-      notes: ''
-    });
-    setTransForm({
-      periodId: 'period-2025',
-      mode: 'bus',
-      activityType: 'passenger_km',
-      quantity: 120000,
-      tripsCount: 440,
-      notes: ''
-    });
-    setWasteForm({
-      periodId: 'period-2025',
-      wasteType: 'organic',
-      treatmentRoute: 'landfill',
-      quantityTonnes: 15.5,
-      notes: ''
-    });
+    setElecForm({ periodId: 'period-2025', monthlyKwh: 48000, sourceType: 'grid', notes: '' });
+    setTransForm({ periodId: 'period-2025', mode: 'bus', activityType: 'passenger_km', quantity: 120000, tripsCount: 440, notes: '' });
+    setWasteForm({ periodId: 'period-2025', wasteType: 'organic', treatmentRoute: 'landfill', quantityTonnes: 15.5, notes: '' });
     setCalculatedLines([]);
     setLastCalculatedCategory(null);
     setErrors({});
@@ -456,14 +462,10 @@ export function useCalculator() {
   };
 
   return {
-    activeTab,
-    setActiveTab,
-    elecForm,
-    setElecForm,
-    transForm,
-    setTransForm,
-    wasteForm,
-    setWasteForm,
+    activeTab, setActiveTab,
+    elecForm, setElecForm,
+    transForm, setTransForm,
+    wasteForm, setWasteForm,
     calculatedLines,
     lastCalculatedCategory,
     errors,
@@ -476,6 +478,5 @@ export function useCalculator() {
     saveRecord,
     resetAll,
     savedRecords,
-    allEmissionFactors: mockEmissionFactors
   };
 }
