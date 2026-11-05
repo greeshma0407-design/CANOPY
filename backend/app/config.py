@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     CORS_ORIGIN_REGEX: str = r"^https://.*\.onrender\.com$"
     METHODOLOGY_VERSION: str = "1.0.0-stage3-auth"
 
+    # One-time reference emission factor seeding (disabled by default)
+    CANOPY_SEED_EMISSION_FACTORS_ONCE: bool = False
+
     # Authentication & Security
     JWT_SECRET_KEY: str = "canopy-local-development-only-change-before-deployment"
     JWT_ALGORITHM: str = "HS256"

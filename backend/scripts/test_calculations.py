@@ -332,6 +332,13 @@ def test_13_analytics_consistency(db):
                                label="Analytics Test Period", status="open"))
     db.commit()
 
+    # Clean up any existing activity records for this test campus to ensure clean run
+    existing_rec_ids = [r.id for r in db.query(ActivityRecord).filter_by(campus_id="campus-analytics-01").all()]
+    if existing_rec_ids:
+        db.query(ActivityItem).filter(ActivityItem.activity_record_id.in_(existing_rec_ids)).delete(synchronize_session=False)
+        db.query(ActivityRecord).filter_by(campus_id="campus-analytics-01").delete()
+        db.commit()
+
     # Insert a known activity record
     rec = ActivityRecord(campus_id="campus-analytics-01", reporting_period_id="period-analytics-01",
                          category="electricity", status="verified", notes="analytics test",

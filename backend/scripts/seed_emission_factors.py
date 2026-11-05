@@ -197,7 +197,7 @@ EMISSION_FACTORS = [
 ]
 
 
-def seed_factors(dry_run: bool = False) -> None:
+def seed_factors(dry_run: bool = False) -> dict:
     """Seed emission factors into the database, skipping existing records."""
     from app.database import engine, Base, SessionLocal
     from app.models.emission_factor import EmissionFactor
@@ -211,32 +211,32 @@ def seed_factors(dry_run: bool = False) -> None:
     skipped = 0
 
     try:
-        db.begin_nested()  # savepoint for transaction safety
-
         for factor_data in EMISSION_FACTORS:
             existing = db.query(EmissionFactor).filter_by(id=factor_data["id"]).first()
             if existing:
-                print(f"  [SKIP]   {factor_data['id']} (already exists, factor_value={existing.factor_value})")
+                print(f"  [SKIP]   {factor_data['id']} (already exists, factor_value={existing.factor_value})", flush=True)
                 skipped += 1
             else:
                 print(f"  [INSERT] {factor_data['id']} "
                       f"({factor_data['category']}/{factor_data['activity_type']}, "
                       f"geography={factor_data['geography']}, "
-                      f"factor={factor_data['factor_value']} {factor_data['factor_unit']})")
+                      f"factor={factor_data['factor_value']} {factor_data['factor_unit']})", flush=True)
                 if not dry_run:
                     db.add(EmissionFactor(**factor_data))
                 inserted += 1
 
         if dry_run:
-            print(f"\n[DRY RUN] Would insert {inserted} factor(s), skip {skipped} existing.")
+            print(f"\n[DRY RUN] Would insert {inserted} factor(s), skip {skipped} existing.", flush=True)
             db.rollback()
         else:
             db.commit()
-            print(f"\n[DONE] Inserted {inserted} factor(s), skipped {skipped} existing.")
+            print(f"\n[DONE] Inserted {inserted} factor(s), skipped {skipped} existing.", flush=True)
+
+        return {"inserted": inserted, "skipped": skipped, "dry_run": dry_run}
 
     except Exception as exc:
         db.rollback()
-        print(f"\n[ERROR] Transaction rolled back: {exc}", file=sys.stderr)
+        print(f"\n[ERROR] Transaction rolled back: {exc}", file=sys.stderr, flush=True)
         raise
     finally:
         db.close()
