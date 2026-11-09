@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap,
   Bus,
@@ -8,7 +8,9 @@ import {
   Save,
   CheckCircle,
   Info,
-  AlertCircle
+  AlertCircle,
+  Calendar,
+  Edit3
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -16,14 +18,22 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
 import { Badge } from '../../components/ui/Badge';
-import { useCalculator } from '../../hooks/useCalculator';
+import { useCalculator, MONTH_NAMES } from '../../hooks/useCalculator';
 import { useCampusData } from '../../hooks/useCampusData';
+import { canopyApi, ActivityRecordRead } from '../../utils/apiClient';
 
 export const CalculatorPage: React.FC = () => {
   const { campus, selectedPeriod, reportingPeriods, refetch } = useCampusData();
   const {
     activeTab,
     setActiveTab,
+    selectedMonth,
+    setSelectedMonth,
+    selectedYear,
+    setSelectedYear,
+    editingRecordId,
+    loadRecordForEdit,
+    cancelEdit,
     elecForm,
     setElecForm,
     transForm,
@@ -37,13 +47,42 @@ export const CalculatorPage: React.FC = () => {
     calculateWaste,
     saveRecord,
     resetAll,
-    savedRecords,
     isCalculating,
     isSaving,
     apiWarnings
   } = useCalculator(selectedPeriod?.id);
 
+  const [records, setRecords] = useState<ActivityRecordRead[]>([]);
+  const [isLoadingRecords, setIsLoadingRecords] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  const fetchRecords = async () => {
+    if (!campus?.id) return;
+    setIsLoadingRecords(true);
+    try {
+      const recs = await canopyApi.getRecords(campus.id, selectedPeriod?.id);
+      setRecords(recs);
+    } catch (err) {
+      console.warn('[CANOPY] Failed to fetch activity records:', err);
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecords();
+  }, [campus?.id, selectedPeriod?.id]);
+
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!window.confirm('Are you sure you want to delete this recorded entry?')) return;
+    try {
+      await canopyApi.deleteRecord(recordId);
+      await fetchRecords();
+      await refetch();
+    } catch (err) {
+      console.error('[CANOPY] Failed to delete record:', err);
+    }
+  };
 
   const handleCalculateCurrent = async () => {
     if (activeTab === 'electricity') {
@@ -56,13 +95,43 @@ export const CalculatorPage: React.FC = () => {
   };
 
   const handleSave = async () => {
-    const periodId = selectedPeriod?.id || 'period-cy2025-01';
-    const periodLabel = selectedPeriod?.label || 'CY 2025';
-    const campusId = campus?.id || 'campus-mlrit-01';
+    if (!campus?.id) return;
 
-    const success = await saveRecord(campusId, periodId, periodLabel);
+    // Find or create reporting period for selectedYear
+    let targetPeriod = reportingPeriods.find(p => p.start_date.startsWith(String(selectedYear)));
+    if (!targetPeriod) {
+      try {
+        const created = await canopyApi.createReportingPeriod({
+          label: `CY ${selectedYear}`,
+          start_date: `${selectedYear}-01-01`,
+          end_date: `${selectedYear}-12-31`,
+          status: 'open'
+        });
+        targetPeriod = {
+          id: created.id,
+          campus_id: created.campus_id,
+          label: created.label,
+          start_date: created.start_date,
+          end_date: created.end_date,
+          status: created.status as any,
+          is_default: false,
+          year: selectedYear,
+          records_count: 0,
+          completeness_pct: 0
+        };
+      } catch (err) {
+        console.warn('[CANOPY] Could not auto-provision period, falling back to active period:', err);
+        targetPeriod = selectedPeriod;
+      }
+    }
+
+    const periodId = targetPeriod?.id || selectedPeriod?.id || '';
+    const periodLabel = targetPeriod?.label || selectedPeriod?.label || `CY ${selectedYear}`;
+
+    const success = await saveRecord(campus.id, periodId, periodLabel, selectedMonth, selectedYear);
     if (success) {
-      setSaveSuccessMsg(`Activity record successfully saved to ${periodLabel} inventory in database.`);
+      setSaveSuccessMsg(`Activity record successfully ${editingRecordId ? 'updated' : 'saved'} in ${periodLabel} inventory.`);
+      await fetchRecords();
       await refetch();
       setTimeout(() => setSaveSuccessMsg(null), 4000);
     }
@@ -71,6 +140,16 @@ export const CalculatorPage: React.FC = () => {
   // Aggregated preview sums
   const totalKg = calculatedLines.reduce((acc, l) => acc + l.emissions_kg_co2e, 0);
   const totalT = calculatedLines.reduce((acc, l) => acc + l.emissions_t_co2e, 0);
+
+  const availableYears = [2026, 2025, 2024, 2023, 2022];
+  const monthOptions = MONTH_NAMES.map((name, idx) => ({
+    value: String(idx + 1),
+    label: `${name} (${String(idx + 1).padStart(2, '0')})`
+  }));
+  const yearOptions = availableYears.map(y => ({
+    value: String(y),
+    label: `${y} Calendar Year`
+  }));
 
   const periodOptions = reportingPeriods.map(p => ({
     value: p.id,
@@ -172,6 +251,85 @@ export const CalculatorPage: React.FC = () => {
           <span>{errors.save}</span>
         </div>
       )}
+
+      {/* Historical Reporting Cycle & Month Selector Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1.25rem',
+          padding: '0.9rem 1.25rem',
+          backgroundColor: 'var(--card-primary)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+          flexWrap: 'wrap'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Calendar size={16} color="var(--forest-green)" />
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              Activity Month:
+            </span>
+            <select
+              value={String(selectedMonth)}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              style={{
+                backgroundColor: 'var(--card-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-primary)',
+                padding: '0.4rem 0.75rem',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              {monthOptions.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              Reporting Year:
+            </span>
+            <select
+              value={String(selectedYear)}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              style={{
+                backgroundColor: 'var(--card-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-primary)',
+                padding: '0.4rem 0.75rem',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              {yearOptions.map(y => (
+                <option key={y.value} value={y.value}>{y.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {editingRecordId && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Badge variant="warning">
+              Editing Record #{editingRecordId.slice(0, 8)}
+            </Badge>
+            <Button variant="ghost" size="sm" onClick={cancelEdit}>
+              Cancel Edit
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Category Tabs */}
       <div className="tabs-header">
@@ -406,7 +564,7 @@ export const CalculatorPage: React.FC = () => {
                   loading={isSaving}
                   icon={<Save size={15} />}
                 >
-                  Save to Inventory
+                  {editingRecordId ? 'Update Record' : 'Save to Inventory'}
                 </Button>
               )
             }
@@ -553,44 +711,106 @@ export const CalculatorPage: React.FC = () => {
             )}
           </Card>
 
-          {/* Session Saved Records List */}
-          {savedRecords.length > 0 && (
-            <Card
-              title={`Saved Session Records (${savedRecords.length})`}
-              subtitle="Entries recorded in current browser session"
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.5rem' }}>
-                {savedRecords.map(rec => (
-                  <div
-                    key={rec.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '0.65rem 0.85rem',
-                      backgroundColor: 'var(--card-primary)',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border)',
-                      fontSize: '0.82rem'
-                    }}
-                  >
-                    <div>
-                      <strong style={{ color: 'var(--text-primary)' }}>{rec.month_name}</strong>
-                      <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>({rec.category})</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--sage)' }}>
-                        {rec.total_t_co2e.toFixed(3)} tCO2e
-                      </span>
-                      <Badge variant="success">Saved Local</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
         </div>
       </div>
+
+      {/* Historical Activity Records Table from Backend Database */}
+      <Card
+        title={`Logged Campus Activity Records (${records.length})`}
+        subtitle={`Auditable consumption entries stored in backend database for ${selectedPeriod.label}`}
+        action={
+          <Badge variant="success">
+            {records.length} Verified Entries
+          </Badge>
+        }
+      >
+        {isLoadingRecords ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            Loading recorded invoices from backend...
+          </div>
+        ) : records.length === 0 ? (
+          <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <Calendar size={28} color="var(--sage)" style={{ margin: '0 auto 0.5rem auto' }} />
+            <p style={{ fontSize: '0.88rem' }}>No activity records saved for this reporting cycle yet.</p>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+              Select a month and year above, calculate emissions, and click Save to Inventory.
+            </p>
+          </div>
+        ) : (
+          <div className="table-container" style={{ marginTop: '0.5rem' }}>
+            <table className="canopy-table">
+              <thead>
+                <tr>
+                  <th>Period / Month</th>
+                  <th>Category</th>
+                  <th>Activity Details</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map(rec => {
+                  const firstItem = rec.activity_items[0];
+                  let monthLabel = rec.notes || rec.reporting_period_id;
+                  if (firstItem?.metadata_json) {
+                    try {
+                      const meta = typeof firstItem.metadata_json === 'string'
+                        ? JSON.parse(firstItem.metadata_json)
+                        : firstItem.metadata_json;
+                      if (meta.month_name) monthLabel = meta.month_name;
+                    } catch {}
+                  }
+
+                  const details = rec.activity_items
+                    .map(it => `${it.quantity.toLocaleString()} ${it.unit} (${it.activity_type.replace(/_/g, ' ')})`)
+                    .join('; ');
+
+                  return (
+                    <tr key={rec.id}>
+                      <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {monthLabel}
+                      </td>
+                      <td>
+                        <Badge variant={rec.category === 'electricity' ? 'success' : rec.category === 'transport' ? 'warning' : 'neutral'}>
+                          {rec.category}
+                        </Badge>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        {details}
+                      </td>
+                      <td>
+                        <Badge variant="success">
+                          {rec.status}
+                        </Badge>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => loadRecordForEdit(rec)}
+                            icon={<Edit3 size={13} />}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleDeleteRecord(rec.id)}
+                            icon={<Trash2 size={13} />}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 };

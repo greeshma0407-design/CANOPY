@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.activity import ActivityRecord, ActivityItem
-from app.schemas.activity import ActivityRecordCreate
+from app.schemas.activity import ActivityRecordCreate, ActivityRecordUpdate
 import json
 
 
@@ -40,6 +40,53 @@ class ActivityRepository:
 
     def get(self, db: Session, record_id: str) -> Optional[ActivityRecord]:
         return db.query(ActivityRecord).filter(ActivityRecord.id == record_id).first()
+
+    def update(
+        self,
+        db: Session,
+        record_id: str,
+        data: ActivityRecordUpdate,
+    ) -> Optional[ActivityRecord]:
+        record = self.get(db, record_id)
+        if not record:
+            return None
+
+        if data.category is not None:
+            record.category = data.category
+        if data.status is not None:
+            record.status = data.status
+        if data.notes is not None:
+            record.notes = data.notes
+        if data.data_source is not None:
+            record.data_source = data.data_source
+
+        if data.items is not None:
+            # Replace child items
+            db.query(ActivityItem).filter(ActivityItem.activity_record_id == record_id).delete()
+            for item_data in data.items:
+                meta = json.dumps(item_data.metadata_json) if item_data.metadata_json else None
+                item = ActivityItem(
+                    activity_record_id=record.id,
+                    activity_type=item_data.activity_type,
+                    quantity=item_data.quantity,
+                    unit=item_data.unit,
+                    subcategory=item_data.subcategory,
+                    metadata_json=meta,
+                    factor_id=item_data.factor_id,
+                )
+                db.add(item)
+
+        db.commit()
+        db.refresh(record)
+        return record
+
+    def delete(self, db: Session, record_id: str) -> bool:
+        record = self.get(db, record_id)
+        if not record:
+            return False
+        db.delete(record)
+        db.commit()
+        return True
 
     def list(
         self,

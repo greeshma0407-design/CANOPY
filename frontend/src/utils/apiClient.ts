@@ -378,6 +378,26 @@ export const canopyApi = {
     });
   },
 
+  async updateRecord(recordId: string, payload: Partial<ActivityRecordCreate>): Promise<ActivityRecordRead> {
+    return request<ActivityRecordRead>(`/records/${recordId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteRecord(recordId: string): Promise<void> {
+    return request<void>(`/records/${recordId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async createReportingPeriod(payload: { label: string; start_date: string; end_date: string; status?: string }): Promise<ReportingPeriod> {
+    return request<ReportingPeriod>('/campuses/me/periods', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   // Scenarios
   async getScenarios(campusId?: string): Promise<ScenarioRead[]> {
     const params = new URLSearchParams();

@@ -75,8 +75,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
           display: 'flex',
           flexDirection: 'column',
           height: '100vh',
+          maxHeight: '100vh',
           position: 'sticky',
           top: 0,
+          left: 0,
           zIndex: 999,
           transition: 'transform var(--transition-normal)',
           transform: mobileOpen ? 'translateX(0)' : undefined

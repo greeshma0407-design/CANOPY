@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.dependencies import get_current_user, get_current_campus_user, require_campus_admin
+from app.core.dependencies import get_current_user, get_current_campus_user, require_campus_admin, require_operator_or_higher
 from app.core.security import create_access_token, hash_password
 from app.database import get_db
 from app.models.campus import Campus, ReportingPeriod
@@ -185,7 +185,7 @@ def get_my_campus_periods(
 @router.post("/me/periods", response_model=ReportingPeriodRead, status_code=status.HTTP_201_CREATED)
 def create_campus_period(
     payload: ReportingPeriodCreate,
-    current_user: User = Depends(require_campus_admin),
+    current_user: User = Depends(require_operator_or_higher),
     db: Session = Depends(get_db),
 ):
     """Add a new reporting period to the current campus (Campus Admin only)."""

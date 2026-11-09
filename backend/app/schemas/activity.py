@@ -53,6 +53,21 @@ class ActivityRecordCreate(BaseModel):
         return v
 
 
+class ActivityRecordUpdate(BaseModel):
+    category: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    data_source: Optional[str] = None
+    items: Optional[List[ActivityItemCreate]] = None
+
+    @field_validator("category")
+    @classmethod
+    def category_valid(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_CATEGORIES:
+            raise ValueError(f"category must be one of {VALID_CATEGORIES}")
+        return v
+
+
 class ActivityRecordRead(BaseModel):
     id: str
     campus_id: str

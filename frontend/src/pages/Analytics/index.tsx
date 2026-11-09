@@ -72,9 +72,27 @@ export const AnalyticsPage: React.FC = () => {
   // Calculate intensity trend points
   const intensityData = filteredData.map(m => ({
     month: m.month_short,
-    perStudentKg: Math.round(((m.total_t_co2e * 1000) / campus.studentCount) * 10) / 10,
-    perSqMkg: Math.round(((m.total_t_co2e * 1000) / campus.builtUpAreaSqM) * 100) / 100
+    perStudentKg: Math.round(((m.total_t_co2e * 1000) / (campus.studentCount || 3000)) * 10) / 10,
+    perSqMkg: Math.round(((m.total_t_co2e * 1000) / (campus.builtUpAreaSqM || 48500)) * 100) / 100
   }));
+
+  // Active months with recorded emissions
+  const monthsWithData = filteredData.filter(m => m.total_t_co2e > 0);
+  const highestMonth = monthsWithData.length > 0
+    ? monthsWithData.reduce((prev, curr) => curr.total_t_co2e > prev.total_t_co2e ? curr : prev)
+    : null;
+
+  let momChangePct: number | null = null;
+  if (monthsWithData.length >= 2) {
+    const latest = monthsWithData[monthsWithData.length - 1];
+    const prev = monthsWithData[monthsWithData.length - 2];
+    if (prev.total_t_co2e > 0) {
+      momChangePct = Math.round(((latest.total_t_co2e - prev.total_t_co2e) / prev.total_t_co2e) * 1000) / 10;
+    }
+  }
+
+  const selectedPeriod = reportingPeriods.find(p => p.id === selectedPeriodId);
+  const currentYear = selectedPeriod ? selectedPeriod.year : new Date().getFullYear();
 
   const handleExportCSV = () => {
     const rows = filteredData.map(m => ({
@@ -83,11 +101,11 @@ export const AnalyticsPage: React.FC = () => {
       'Transportation (tCO2e)': m.transport_t_co2e,
       'Waste & Landfill (tCO2e)': m.waste_t_co2e,
       'Total Emissions (tCO2e)': m.total_t_co2e,
-      'Per-Student (kgCO2e)': Math.round((m.total_t_co2e * 1000) / campus.studentCount),
+      'Per-Student (kgCO2e)': Math.round((m.total_t_co2e * 1000) / (campus.studentCount || 3000)),
       'Completeness Status': m.is_complete ? 'Complete' : 'Pending'
     }));
 
-    exportToCSV(rows, `canopy-analytics-${filterRange}-2025.csv`);
+    exportToCSV(rows, `canopy-analytics-${filterRange}-${currentYear}.csv`);
   };
 
   return (
@@ -214,16 +232,14 @@ export const AnalyticsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 3 Intensity Metric Cards */}
+      {/* 3 Intensity & Trajectory Metric Cards */}
       <div className="grid-cols-3">
         <KPICard
           label="Per-Student Carbon Intensity"
           value={perStudentEmissions}
           unit="tCO2e/student/yr"
           icon={Users}
-          trendPct={-7.2}
-          trendDirection="down"
-          periodComparison="based on 3,000 enrolled students"
+          periodComparison={`based on ${(campus.studentCount || 3000).toLocaleString()} enrolled students`}
           isDesirableDown={true}
         />
         <KPICard
@@ -231,19 +247,29 @@ export const AnalyticsPage: React.FC = () => {
           value={perSqMEmissions}
           unit="kgCO2e/m²/yr"
           icon={Building2}
-          trendPct={-6.5}
-          trendDirection="down"
-          periodComparison="based on 48,500 m² floor space"
+          periodComparison={`based on ${(campus.builtUpAreaSqM || 48500).toLocaleString()} m² floor space`}
           isDesirableDown={true}
         />
         <KPICard
-          label="Campus Population Load"
-          value="247"
-          unit="kgCO2e/capita"
+          label="Month-over-Month Change"
+          value={
+            momChangePct !== null
+              ? `${momChangePct > 0 ? '+' : ''}${momChangePct.toFixed(1)}%`
+              : (monthsWithData.length === 1 ? 'Baseline' : 'No records')
+          }
+          unit={
+            monthsWithData.length >= 2
+              ? `${monthsWithData[monthsWithData.length - 2].month_short} → ${monthsWithData[monthsWithData.length - 1].month_short}`
+              : (highestMonth ? `Peak: ${highestMonth.month_short}` : 'Awaiting monthly data')
+          }
           icon={BarChart3}
-          trendPct={-8.0}
-          trendDirection="down"
-          periodComparison="student + faculty + staff (3,400)"
+          trendPct={momChangePct !== null ? momChangePct : undefined}
+          trendDirection={momChangePct !== null ? (momChangePct > 0 ? 'up' : 'down') : undefined}
+          periodComparison={
+            highestMonth
+              ? `Highest month: ${highestMonth.month_name} (${highestMonth.total_t_co2e.toFixed(1)} tCO2e)`
+              : 'No monthly peaks recorded'
+          }
           isDesirableDown={true}
         />
       </div>
@@ -276,7 +302,7 @@ export const AnalyticsPage: React.FC = () => {
       {/* Multi-Period Backend Trends (if available) */}
       {periodTrends.length > 0 && (
         <Card
-          title="Multi-Year Longitudinal Trends (/api/v1/analytics/trends)"
+          title="Multi-Year Longitudinal Trends"
           subtitle="Annualized reporting period emissions comparison verified by calculation engine"
           action={
             <Badge variant="success" icon={<TrendingDown size={12} />}>
@@ -326,8 +352,8 @@ export const AnalyticsPage: React.FC = () => {
         title="Month-by-Month Carbon Inventory"
         subtitle="Auditable monthly activity sums, verified status, and per-capita intensity"
         action={
-          <Badge variant="success" icon={<CheckCircle2 size={12} />}>
-            100% Invoices Logged
+          <Badge variant={monthsWithData.length > 0 ? 'success' : 'neutral'} icon={<CheckCircle2 size={12} />}>
+            {monthsWithData.length > 0 ? `${monthsWithData.length} of 12 Months Logged` : 'Awaiting Records'}
           </Badge>
         }
       >

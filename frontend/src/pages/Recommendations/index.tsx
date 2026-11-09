@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Lightbulb,
   CheckCircle2,
@@ -10,11 +11,13 @@ import {
   ShieldCheck,
   RotateCcw,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Calculator
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { canopyApi, RecommendationRead } from '../../utils/apiClient';
 import { Recommendation, RecommendationStatus, ImpactLevel } from '../../types';
 
@@ -58,6 +61,7 @@ function mapApiRec(r: RecommendationRead): Recommendation {
 }
 
 export const RecommendationsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -246,15 +250,22 @@ export const RecommendationsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Empty after filter */}
+      {/* Empty State when no activity records logged yet */}
       {!isLoading && !apiError && recommendations.length === 0 && (
-        <Card>
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            <Lightbulb size={32} color="var(--sage)" style={{ margin: '0 auto 0.75rem auto' }} />
-            <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.35rem' }}>No recommendations found</h4>
-            <p style={{ fontSize: '0.85rem' }}>No recommendations are currently available from the backend.</p>
-          </div>
-        </Card>
+        <EmptyState
+          icon={Lightbulb}
+          title="Awaiting Campus Activity Data to Formulate Roadmaps"
+          description="Canopy generates verified, prioritized decarbonization recommendations once electricity, transportation, or solid waste records are logged. Add activity data in the Carbon Calculator to unlock tailored capital retrofits and behavioral initiatives."
+          action={
+            <Button
+              variant="primary"
+              onClick={() => navigate('/calculator')}
+              icon={<Calculator size={15} />}
+            >
+              Go to Carbon Calculator
+            </Button>
+          }
+        />
       )}
       {!isLoading && sorted.length === 0 && recommendations.length > 0 && (
         <Card>

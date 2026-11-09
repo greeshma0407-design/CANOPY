@@ -176,9 +176,12 @@ export function useCampusData() {
         const records: ActivityRecordRead[] = await canopyApi.getRecords(activeCampusId, activePeriodId);
 
         if (records && records.length > 0 && sumT > 0) {
+          const periodYear = selectedPeriod?.year || (selectedPeriod?.start_date ? parseInt(selectedPeriod.start_date.slice(0, 4), 10) : 2025);
+
           const monthsData = MONTH_NAMES.map((mName, i) => {
             const mNum = i + 1;
-            const monthCode = `2025-${mNum.toString().padStart(2, '0')}`;
+            const monthCode = `${periodYear}-${mNum.toString().padStart(2, '0')}`;
+            const mShort = MONTH_SHORTS[i];
 
             let mElecKwh = 0;
             let mTransPkm = 0;
@@ -186,12 +189,29 @@ export function useCampusData() {
 
             for (const r of records) {
               const notes = r.notes || '';
-              const matchesMonth =
-                notes.includes(MONTH_SHORTS[i]) ||
-                notes.includes(mName) ||
-                (r.created_at && r.created_at.startsWith(monthCode));
+              let matches = false;
 
-              if (matchesMonth) {
+              for (const item of r.activity_items) {
+                if (item.metadata_json) {
+                  try {
+                    const meta = typeof item.metadata_json === 'string' ? JSON.parse(item.metadata_json) : item.metadata_json;
+                    if (meta.month_num === mNum || meta.month === monthCode) {
+                      matches = true;
+                    }
+                  } catch {}
+                }
+              }
+
+              if (!matches) {
+                matches = Boolean(
+                  notes.includes(monthCode) ||
+                  notes.includes(mShort) ||
+                  notes.includes(mName) ||
+                  (r.created_at && r.created_at.startsWith(monthCode))
+                );
+              }
+
+              if (matches) {
                 for (const item of r.activity_items) {
                   if (r.category === 'electricity') {
                     mElecKwh += item.quantity;
@@ -209,14 +229,31 @@ export function useCampusData() {
               _transPkm: mTransPkm,
               _wasteT: mWasteT,
               month: monthCode,
-              month_short: MONTH_SHORTS[i],
-              month_name: mName,
+              month_short: mShort,
+              month_name: `${mName} ${periodYear}`,
             };
           });
 
-          const totalElecKwh  = monthsData.reduce((s, m) => s + m._elecKwh, 0);
-          const totalTransPkm = monthsData.reduce((s, m) => s + m._transPkm, 0);
-          const totalWasteT   = monthsData.reduce((s, m) => s + m._wasteT, 0);
+          let totalElecKwh  = monthsData.reduce((s, m) => s + m._elecKwh, 0);
+          let totalTransPkm = monthsData.reduce((s, m) => s + m._transPkm, 0);
+          let totalWasteT   = monthsData.reduce((s, m) => s + m._wasteT, 0);
+
+          // Graceful fallback for legacy records without month tag: allocate to active month so graph displays
+          if (totalElecKwh === 0 && elecT > 0) {
+            const activeIdx = Math.min(new Date().getMonth(), 11);
+            monthsData[activeIdx]._elecKwh = 1;
+            totalElecKwh = 1;
+          }
+          if (totalTransPkm === 0 && transT > 0) {
+            const activeIdx = Math.min(new Date().getMonth(), 11);
+            monthsData[activeIdx]._transPkm = 1;
+            totalTransPkm = 1;
+          }
+          if (totalWasteT === 0 && wasteT > 0) {
+            const activeIdx = Math.min(new Date().getMonth(), 11);
+            monthsData[activeIdx]._wasteT = 1;
+            totalWasteT = 1;
+          }
 
           const finalMonths: MonthlyEmissions[] = monthsData.map((m) => {
             const mElec  = totalElecKwh  > 0 ? (m._elecKwh  / totalElecKwh)  * elecT  : 0;

@@ -7,7 +7,7 @@ from app.core.dependencies import require_any_authenticated, require_operator_or
 from app.database import get_db
 from app.models.user import User
 from app.repositories.activity_repo import activity_repo
-from app.schemas.activity import ActivityRecordCreate, ActivityRecordRead
+from app.schemas.activity import ActivityRecordCreate, ActivityRecordRead, ActivityRecordUpdate
 
 router = APIRouter(prefix="/records", tags=["records"])
 
@@ -66,3 +66,46 @@ def get_record(
         )
 
     return record
+
+
+@router.put("/{record_id}", response_model=ActivityRecordRead)
+def update_record(
+    record_id: str,
+    payload: ActivityRecordUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_operator_or_higher),
+):
+    """Update an existing activity record with tenant boundary verification."""
+    existing = activity_repo.get(db, record_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    if current_user.campus_id and existing.campus_id != current_user.campus_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot modify activity records belonging to another campus.",
+        )
+
+    updated = activity_repo.update(db, record_id, payload)
+    return updated
+
+
+@router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_record(
+    record_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_operator_or_higher),
+):
+    """Delete an activity record with tenant boundary verification."""
+    existing = activity_repo.get(db, record_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    if current_user.campus_id and existing.campus_id != current_user.campus_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete activity records belonging to another campus.",
+        )
+
+    activity_repo.delete(db, record_id)
+    return None

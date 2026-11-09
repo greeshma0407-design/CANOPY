@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { CalculationLine, ActivityRecord, EmissionCategory } from '../types';
 import { useLocalStorage } from './useLocalStorage';
-import { canopyApi, PreviewItemInput, ActivityRecordCreate } from '../utils/apiClient';
+import { canopyApi, PreviewItemInput, ActivityRecordCreate, ActivityRecordRead } from '../utils/apiClient';
 import { useAuth } from '../context/AuthContext';
+
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 export interface ElectricityInput {
   periodId: string;
@@ -82,6 +87,10 @@ export function useCalculator(initialPeriodId?: string) {
     quantityTonnes: 15.5,
     notes: 'Mess and food court unsegregated waste haul'
   });
+
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
+  const [selectedYear, setSelectedYear] = useState<number>(2025);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
 
   const [savedRecords, setSavedRecords] = useLocalStorage<ActivityRecord[]>('canopy_session_records', []);
   const [calculatedLines, setCalculatedLines] = useState<CalculationLine[]>([]);
@@ -369,12 +378,87 @@ export function useCalculator(initialPeriodId?: string) {
   };
 
   // ---------------------------------------------------------------------------
+  // Load an existing record into the form for editing
+  // ---------------------------------------------------------------------------
+  const loadRecordForEdit = (record: ActivityRecordRead) => {
+    setEditingRecordId(record.id);
+    setActiveTab(record.category as EmissionCategory);
+
+    let parsedMonth = selectedMonth;
+    let parsedYear = selectedYear;
+
+    const firstItem = record.activity_items[0];
+    if (firstItem?.metadata_json) {
+      try {
+        const meta = typeof firstItem.metadata_json === 'string'
+          ? JSON.parse(firstItem.metadata_json)
+          : firstItem.metadata_json;
+        if (meta.month_num) parsedMonth = Number(meta.month_num);
+        if (meta.year) parsedYear = Number(meta.year);
+      } catch {}
+    } else if (record.notes) {
+      const mMatch = record.notes.match(/(\d{4})-(\d{2})/);
+      if (mMatch) {
+        parsedYear = parseInt(mMatch[1], 10);
+        parsedMonth = parseInt(mMatch[2], 10);
+      }
+    }
+    setSelectedMonth(parsedMonth);
+    setSelectedYear(parsedYear);
+
+    if (record.category === 'electricity') {
+      const isSolar = firstItem?.activity_type.includes('solar');
+      setElecForm({
+        periodId: record.reporting_period_id,
+        monthlyKwh: firstItem?.quantity || 48000,
+        sourceType: isSolar ? 'solar' : 'grid',
+        notes: record.notes || ''
+      });
+    } else if (record.category === 'transport') {
+      let mode = 'bus';
+      if (firstItem?.activity_type.includes('car')) mode = 'car';
+      else if (firstItem?.activity_type.includes('motorcycle')) mode = 'twowheeler';
+      else if (firstItem?.activity_type.includes('auto')) mode = 'auto';
+      else if (firstItem?.activity_type.includes('cycling') || firstItem?.activity_type.includes('walking')) mode = 'cycling';
+
+      setTransForm({
+        periodId: record.reporting_period_id,
+        mode,
+        activityType: (firstItem?.unit === 'vehicle_km' ? 'vehicle_km' : 'passenger_km'),
+        quantity: firstItem?.quantity || 120000,
+        tripsCount: 440,
+        notes: record.notes || ''
+      });
+    } else if (record.category === 'waste') {
+      const isMixed = firstItem?.activity_type.includes('mixed');
+      const isCompost = firstItem?.activity_type.includes('compost');
+      setWasteForm({
+        periodId: record.reporting_period_id,
+        wasteType: isMixed ? 'mixed' : 'organic',
+        treatmentRoute: isCompost ? 'compost' : 'landfill',
+        quantityTonnes: firstItem?.quantity || 15.5,
+        notes: record.notes || ''
+      });
+    }
+    setCalculatedLines([]);
+    setErrors({});
+  };
+
+  const cancelEdit = () => {
+    setEditingRecordId(null);
+    setCalculatedLines([]);
+    setErrors({});
+  };
+
+  // ---------------------------------------------------------------------------
   // Save current lines to backend and local session records
   // ---------------------------------------------------------------------------
   const saveRecord = async (
     targetCampusId?: string,
     targetPeriodId?: string,
-    reportingPeriodLabel: string = 'CY 2025'
+    reportingPeriodLabel: string = 'CY 2025',
+    monthOverride?: number,
+    yearOverride?: number
   ): Promise<boolean> => {
     if (calculatedLines.length === 0) return false;
     setIsSaving(true);
@@ -389,6 +473,12 @@ export function useCalculator(initialPeriodId?: string) {
       return false;
     }
 
+    const monthNum = monthOverride || selectedMonth;
+    const yearNum = yearOverride || selectedYear;
+    const monthPad = monthNum.toString().padStart(2, '0');
+    const monthCode = `${yearNum}-${monthPad}`;
+    const monthName = MONTH_NAMES[monthNum - 1] || 'Month';
+
     const totalKg = calculatedLines.reduce((acc, l) => acc + l.emissions_kg_co2e, 0);
     const totalT  = calculatedLines.reduce((acc, l) => acc + l.emissions_t_co2e, 0);
 
@@ -402,24 +492,37 @@ export function useCalculator(initialPeriodId?: string) {
     const getBackendUnit = (line: CalculationLine): string =>
       line.unit.replace('passenger-km', 'passenger_km').replace('vehicle-km', 'vehicle_km');
 
-    try {
-      const recordPayload: ActivityRecordCreate = {
-        campus_id: campusId,
-        reporting_period_id: periodId,
-        category: activeTab,
-        status: 'verified',
-        notes: `Entry for ${reportingPeriodLabel} — ${activeTab}`,
-        data_source: 'Canopy Carbon Calculator',
-        items: calculatedLines.map(l => ({
-          activity_type: getBackendActivityType(l),
-          quantity: l.quantity,
-          unit: getBackendUnit(l),
-          subcategory: activeTab,
-          factor_id: l.factor_id ?? undefined,
-        }))
-      };
+    const metaObj = {
+      month: monthCode,
+      month_name: `${monthName} ${yearNum}`,
+      year: yearNum,
+      month_num: monthNum
+    };
 
-      await canopyApi.createRecord(recordPayload);
+    const recordPayload: ActivityRecordCreate = {
+      campus_id: campusId,
+      reporting_period_id: periodId,
+      category: activeTab,
+      status: 'verified',
+      notes: `${reportingPeriodLabel} — ${monthName} ${yearNum} (${monthCode}) — ${activeTab}`,
+      data_source: 'Canopy Carbon Calculator',
+      items: calculatedLines.map(l => ({
+        activity_type: getBackendActivityType(l),
+        quantity: l.quantity,
+        unit: getBackendUnit(l),
+        subcategory: activeTab,
+        metadata_json: metaObj,
+        factor_id: l.factor_id ?? undefined,
+      }))
+    };
+
+    try {
+      if (editingRecordId) {
+        await canopyApi.updateRecord(editingRecordId, recordPayload);
+        setEditingRecordId(null);
+      } else {
+        await canopyApi.createRecord(recordPayload);
+      }
     } catch (err: any) {
       console.error('[CANOPY API] Backend record creation error:', err);
       setErrors(prev => ({ ...prev, save: err?.message || 'Failed to persist record to backend database.' }));
@@ -430,20 +533,20 @@ export function useCalculator(initialPeriodId?: string) {
     setIsSaving(false);
 
     const newRecord: ActivityRecord = {
-      id: `session-rec-${Date.now()}`,
+      id: editingRecordId || `session-rec-${Date.now()}`,
       campus_id: campusId,
       reporting_period_id: periodId,
-      month: new Date().toISOString().slice(0, 7),
-      month_name: `${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })} (Session Entry)`,
+      month: monthCode,
+      month_name: `${monthName} ${yearNum}`,
       category: activeTab,
       status: 'verified',
       data_source: 'Canopy Carbon Calculator',
-      notes: `Calculated for ${reportingPeriodLabel} session`,
+      notes: `Calculated for ${monthName} ${yearNum}`,
       total_kg_co2e: totalKg,
       total_t_co2e: totalT,
       items: calculatedLines.map(l => ({
         id: `item-${Date.now()}-${l.id}`,
-        activity_record_id: `session-rec-${Date.now()}`,
+        activity_record_id: editingRecordId || `session-rec-${Date.now()}`,
         activity_type: getBackendActivityType(l),
         quantity: l.quantity,
         unit: getBackendUnit(l),
@@ -456,11 +559,12 @@ export function useCalculator(initialPeriodId?: string) {
       }))
     };
 
-    setSavedRecords(prev => [newRecord, ...prev]);
+    setSavedRecords(prev => [newRecord, ...prev.filter(r => r.id !== newRecord.id)]);
     return true;
   };
 
   const resetAll = () => {
+    setEditingRecordId(null);
     setElecForm({ periodId: defaultPeriod, monthlyKwh: 48000, sourceType: 'grid', notes: '' });
     setTransForm({ periodId: defaultPeriod, mode: 'bus', activityType: 'passenger_km', quantity: 120000, tripsCount: 440, notes: '' });
     setWasteForm({ periodId: defaultPeriod, wasteType: 'organic', treatmentRoute: 'landfill', quantityTonnes: 15.5, notes: '' });
@@ -472,6 +576,11 @@ export function useCalculator(initialPeriodId?: string) {
 
   return {
     activeTab, setActiveTab,
+    selectedMonth, setSelectedMonth,
+    selectedYear, setSelectedYear,
+    editingRecordId,
+    loadRecordForEdit,
+    cancelEdit,
     elecForm, setElecForm,
     transForm, setTransForm,
     wasteForm, setWasteForm,
