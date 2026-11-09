@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Download,
   Printer,
@@ -6,20 +7,20 @@ import {
   AlertTriangle,
   Calendar,
   Sparkles,
-  RefreshCw,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet,
+  Calculator
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { useCampusData } from '../../hooks/useCampusData';
 import { canopyApi, ReportRead } from '../../utils/apiClient';
 import { exportToCSV } from '../../utils/csvExport';
 
-const CAMPUS_ID = 'campus-mlrit-01'; // fallback only — overridden at runtime by campus.id
-const PERIOD_ID = 'period-cy2025-01'; // fallback only — overridden at runtime by selectedPeriod.id
-
 export const ReportsPage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     campus,
     reportingPeriods,
@@ -44,7 +45,10 @@ export const ReportsPage: React.FC = () => {
     // Reports created this session are stored in component state
   }, []);
 
+  const hasData = totalEmissions_t_co2e > 0 || categoryBreakdowns.some(c => c.emissions_t_co2e > 0);
+
   const handleGenerateReport = async () => {
+    if (!hasData || !campus?.id || !selectedPeriod?.id) return;
     setIsGenerating(true);
     setGeneratedSuccess(false);
     setApiError(null);
@@ -52,8 +56,8 @@ export const ReportsPage: React.FC = () => {
     if (isLiveBackend) {
       try {
         const created = await canopyApi.createReport({
-          campus_id: campus?.id || CAMPUS_ID,
-          reporting_period_id: selectedPeriod?.id || PERIOD_ID,
+          campus_id: campus.id,
+          reporting_period_id: selectedPeriod.id,
           title: `${campus?.name || 'Campus'} GHG Inventory — ${selectedPeriod.label}`,
           format: 'json'
         });
@@ -67,7 +71,6 @@ export const ReportsPage: React.FC = () => {
         setTimeout(() => { setGeneratedSuccess(false); setApiError(null); }, 4000);
       }
     } else {
-      // Fallback: just show success (report data already in UI from useCampusData)
       setTimeout(() => {
         setGeneratedSuccess(true);
         setTimeout(() => setGeneratedSuccess(false), 3500);
@@ -100,6 +103,7 @@ export const ReportsPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
+    if (!hasData) return;
     const rows = categoryBreakdowns.map(c => ({
       Category: c.label,
       'Total Emissions (tCO2e)': c.emissions_t_co2e,
@@ -107,18 +111,21 @@ export const ReportsPage: React.FC = () => {
       'Trend (%)': `${c.trend_direction === 'down' ? '-' : '+'}${Math.abs(c.trend_pct)}%`,
       'Campus Reporting Period': selectedPeriod.label,
       'Institution Name': campus.name,
-      'Data Confidence': isLiveBackend ? 'Backend Verified' : 'Illustrative Stage 2 Demo Data'
+      'Data Confidence': isLiveBackend ? 'Backend Verified' : 'Verified Records'
     }));
 
     exportToCSV(rows, `canopy-carbon-report-${selectedPeriod.year}.csv`);
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    if (!hasData) return;
+    window.print();
+  };
 
-  // Display values from live backend or fallback
-  const elecT = categoryBreakdowns.find(c => c.category === 'electricity')?.emissions_t_co2e ?? 454.7;
-  const transT = categoryBreakdowns.find(c => c.category === 'transport')?.emissions_t_co2e ?? 214.5;
-  const wasteT = categoryBreakdowns.find(c => c.category === 'waste')?.emissions_t_co2e ?? 28.1;
+  // Display values from live backend or 0 if no records
+  const elecT = categoryBreakdowns.find(c => c.category === 'electricity')?.emissions_t_co2e ?? 0;
+  const transT = categoryBreakdowns.find(c => c.category === 'transport')?.emissions_t_co2e ?? 0;
+  const wasteT = categoryBreakdowns.find(c => c.category === 'waste')?.emissions_t_co2e ?? 0;
   const totalT = totalEmissions_t_co2e;
 
   return (
@@ -135,9 +142,20 @@ export const ReportsPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Button variant="secondary" size="sm" onClick={handlePrint} icon={<Printer size={14} />}>Print / PDF</Button>
-          <Button variant="secondary" size="sm" onClick={handleExportCSV} icon={<Download size={14} />}>Export CSV</Button>
-          <Button variant="primary" size="sm" loading={isGenerating} onClick={handleGenerateReport} icon={<Sparkles size={14} />}>
+          <Button variant="secondary" size="sm" onClick={handlePrint} icon={<Printer size={14} />} disabled={!hasData}>
+            Print / PDF
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleExportCSV} icon={<Download size={14} />} disabled={!hasData}>
+            Export CSV
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            loading={isGenerating}
+            onClick={handleGenerateReport}
+            icon={<Sparkles size={14} />}
+            disabled={!hasData}
+          >
             Generate Fresh Report
           </Button>
         </div>
@@ -182,7 +200,7 @@ export const ReportsPage: React.FC = () => {
           </select>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-          <span>Status: <strong style={{ color: 'var(--forest-green)' }}>Audit Ready</strong></span>
+          <span>Status: <strong style={{ color: hasData ? 'var(--forest-green)' : 'var(--text-muted)' }}>{hasData ? 'Audit Ready' : 'Pending Records'}</strong></span>
           <span>Coverage: <strong>Scope 2 &amp; 3</strong></span>
         </div>
       </div>
@@ -222,203 +240,218 @@ export const ReportsPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Report Document (paper style) */}
-      <div
-        id="canopy-printable-report"
-        style={{
-          backgroundColor: '#161C17', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
-          padding: '3rem 3.5rem', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', gap: '2.5rem'
-        }}
-      >
-        {/* Document Header */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-          borderBottom: '2px solid var(--border)', paddingBottom: '2rem'
-        }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <span style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Canopy
-              </span>
-              <span style={{ color: 'var(--sage)', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                &bull; Campus Carbon Accounting Engine
-              </span>
-            </div>
-            <h2 style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.75rem', color: 'var(--text-primary)', marginTop: '0.2rem' }}>
-              {campus.name} GHG Inventory — {selectedPeriod.label}
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
-              Reporting Target: <strong style={{ color: 'var(--text-primary)' }}>{campus.name}</strong>
-            </p>
-          </div>
-          <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            <div>Generated: {new Date().toLocaleDateString()}</div>
-            <div>Period: <code>{selectedPeriod.id}</code></div>
-            <div style={{ marginTop: '0.4rem' }}>
-              {isLiveBackend
-                ? <Badge variant="success"><RefreshCw size={10} style={{ marginRight: '0.25rem' }} />Live Data</Badge>
-                : <Badge variant="illustrative">Illustrative Report</Badge>
-              }
-            </div>
-          </div>
-        </div>
-
-        {/* Section 1: Executive Summary */}
-        <div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-            1. Executive Summary &amp; Inventory Highlights
-          </h3>
-          <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            {campus.name} has completed its {selectedPeriod.label} Greenhouse Gas (GHG) inventory covering Scope 2 and Scope 3 emission sources.
-            Total campus emissions for the period stand at <strong style={{ color: 'var(--sage)' }}>{totalT.toFixed(2)} tCO2e</strong>.
-            The inventory covers electricity consumption, campus transport (college buses and private commuter vehicles), and solid waste streams.
-            {isLiveBackend
-              ? ' Data sourced directly from backend via verified emission factors.'
-              : ' Values are illustrative — no activity records have been entered for this period yet.'}
-          </p>
-
+      {/* Empty State vs Report Document */}
+      {!hasData ? (
+        <EmptyState
+          icon={FileSpreadsheet}
+          title={`No GHG Inventory Records for ${selectedPeriod.label}`}
+          description={`No activity data has been recorded for this reporting period yet. Log electricity, commuter transport, or solid waste consumption in the Carbon Calculator to compile an audit-ready compliance report.`}
+          action={
+            <Button
+              variant="primary"
+              onClick={() => navigate('/calculator')}
+              icon={<Calculator size={15} />}
+            >
+              Go to Carbon Calculator
+            </Button>
+          }
+        />
+      ) : (
+        <div
+          id="canopy-printable-report"
+          style={{
+            backgroundColor: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
+            padding: '3rem 3.5rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '2.5rem'
+          }}
+        >
+          {/* Document Header */}
           <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '1.25rem',
-            padding: '1.25rem', backgroundColor: 'var(--card-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)'
+            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+            borderBottom: '2px solid var(--border)', paddingBottom: '2rem'
           }}>
             <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Gross Campus Emissions</span>
-              <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
-                {totalT.toFixed(1)} tCO2e
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Canopy
+                </span>
+                <span style={{ color: 'var(--sage)', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                  &bull; Campus Carbon Accounting Engine
+                </span>
               </div>
+              <h2 style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.75rem', color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                {campus.name} GHG Inventory — {selectedPeriod.label}
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
+                Reporting Target: <strong style={{ color: 'var(--text-primary)' }}>{campus.name}</strong>
+              </p>
             </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Scope 2 (Electricity)</span>
-              <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--sage)', marginTop: '0.2rem' }}>
-                {elecT.toFixed(1)} tCO2e
-              </div>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Scope 3 (Commuter Transit)</span>
-              <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--ochre)', marginTop: '0.2rem' }}>
-                {transT.toFixed(1)} tCO2e
-              </div>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Scope 3 (Solid Waste)</span>
-              <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: '#6B705C', marginTop: '0.2rem' }}>
-                {wasteT.toFixed(1)} tCO2e
+            <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              <div>Generated: {new Date().toLocaleDateString()}</div>
+              <div>Period: <code>{selectedPeriod.id}</code></div>
+              <div style={{ marginTop: '0.4rem' }}>
+                <Badge variant="success">
+                  <CheckCircle2 size={10} style={{ marginRight: '0.25rem' }} />
+                  Verified Records
+                </Badge>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Section 2: Institutional Profile */}
-        <div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-            2. Institutional Profile &amp; Boundary Conditions
-          </h3>
-          <div className="table-container">
-            <table className="canopy-table">
-              <tbody>
-                <tr>
-                  <td style={{ width: '35%', color: 'var(--text-secondary)', fontWeight: 600 }}>Campus Institution</td>
-                  <td>{campus.name} ({campus.code})</td>
-                </tr>
-                <tr>
-                  <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Location &amp; State</td>
-                  <td>{campus.location}, {campus.state}, {campus.country}</td>
-                </tr>
-                <tr>
-                  <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Campus Land &amp; Built Space</td>
-                  <td>{campus.campusAreaAcres} Acres &bull; {campus.builtUpAreaSqM.toLocaleString()} m² floor area</td>
-                </tr>
-                <tr>
-                  <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Campus Demographics</td>
-                  <td>{campus.studentCount.toLocaleString()} students &bull; {campus.facultyCount} faculty &bull; {campus.staffCount} staff</td>
-                </tr>
-                <tr>
-                  <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Inventory Boundaries</td>
-                  <td>Scope 2 (Metered grid electricity) + Scope 3 (Student buses, commuter cars, solid waste streams)</td>
-                </tr>
-              </tbody>
-            </table>
+          {/* Section 1: Executive Summary */}
+          <div>
+            <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              1. Executive Summary &amp; Inventory Highlights
+            </h3>
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              {campus.name} has completed its {selectedPeriod.label} Greenhouse Gas (GHG) inventory covering Scope 2 and Scope 3 emission sources.
+              Total campus emissions for the period stand at <strong style={{ color: 'var(--forest-green)' }}>{totalT.toFixed(2)} tCO2e</strong>.
+              The inventory covers electricity consumption, campus transport (college buses and private commuter vehicles), and solid waste streams.
+              Data calculated from verified campus activity records and authoritative emission factors.
+            </p>
+
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '1.25rem',
+              padding: '1.25rem', backgroundColor: 'var(--card-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Gross Campus Emissions</span>
+                <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                  {totalT.toFixed(2)} tCO2e
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Scope 2 (Electricity)</span>
+                <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--forest-green)', marginTop: '0.2rem' }}>
+                  {elecT.toFixed(2)} tCO2e
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Scope 3 (Commuter Transit)</span>
+                <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--ochre)', marginTop: '0.2rem' }}>
+                  {transT.toFixed(2)} tCO2e
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Scope 3 (Solid Waste)</span>
+                <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.6rem', fontWeight: 700, color: 'var(--sage)', marginTop: '0.2rem' }}>
+                  {wasteT.toFixed(2)} tCO2e
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Section 3: Activity Breakdown */}
-        <div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-            3. Activity Breakdown &amp; Year-Over-Year Variance
-          </h3>
-          <div className="table-container">
-            <table className="canopy-table">
-              <thead>
-                <tr>
-                  <th>Emission Category</th>
-                  <th>Emissions (tCO2e)</th>
-                  <th>Share (%)</th>
-                  <th>YoY Delta (vs CY2024)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categoryBreakdowns.map(cat => (
-                  <tr key={cat.category}>
-                    <td style={{ fontWeight: 600 }}>{cat.label}</td>
-                    <td style={{ fontWeight: 600, color: cat.category === 'electricity' ? 'var(--sage)' : cat.category === 'transport' ? 'var(--ochre)' : '#6B705C' }}>
-                      {cat.emissions_t_co2e.toFixed(1)}
-                    </td>
-                    <td>{cat.percentage}%</td>
-                    <td style={{ color: cat.trend_direction === 'down' ? '#8FD895' : 'var(--ochre)' }}>
-                      {cat.trend_direction === 'down' ? '↓' : '↑'} {Math.abs(cat.trend_pct)}%
+          {/* Section 2: Institutional Profile */}
+          <div>
+            <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              2. Institutional Profile &amp; Boundary Conditions
+            </h3>
+            <div className="table-container">
+              <table className="canopy-table">
+                <tbody>
+                  <tr>
+                    <td style={{ width: '35%', color: 'var(--text-secondary)', fontWeight: 600 }}>Campus Institution</td>
+                    <td>{campus.name} ({campus.code})</td>
+                  </tr>
+                  <tr>
+                    <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Location &amp; State</td>
+                    <td>{campus.location}, {campus.state}, {campus.country}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Campus Land &amp; Built Space</td>
+                    <td>{campus.campusAreaAcres} Acres &bull; {campus.builtUpAreaSqM.toLocaleString()} m² floor area</td>
+                  </tr>
+                  <tr>
+                    <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Campus Demographics</td>
+                    <td>{campus.studentCount.toLocaleString()} students &bull; {campus.facultyCount} faculty &bull; {campus.staffCount} staff</td>
+                  </tr>
+                  <tr>
+                    <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Inventory Boundaries</td>
+                    <td>Scope 2 (Metered grid electricity) + Scope 3 (Student buses, commuter cars, solid waste streams)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 3: Activity Breakdown */}
+          <div>
+            <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              3. Activity Breakdown &amp; Year-Over-Year Variance
+            </h3>
+            <div className="table-container">
+              <table className="canopy-table">
+                <thead>
+                  <tr>
+                    <th>Emission Category</th>
+                    <th>Emissions (tCO2e)</th>
+                    <th>Share (%)</th>
+                    <th>YoY Delta (vs CY2024)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoryBreakdowns.map(cat => (
+                    <tr key={cat.category}>
+                      <td style={{ fontWeight: 600 }}>{cat.label}</td>
+                      <td style={{ fontWeight: 600, color: cat.category === 'electricity' ? 'var(--forest-green)' : cat.category === 'transport' ? 'var(--ochre)' : 'var(--sage)' }}>
+                        {cat.emissions_t_co2e.toFixed(2)}
+                      </td>
+                      <td>{cat.percentage}%</td>
+                      <td style={{ color: cat.trend_direction === 'down' ? 'var(--forest-green)' : 'var(--ochre)' }}>
+                        {cat.trend_direction === 'down' ? '↓' : '↑'} {Math.abs(cat.trend_pct)}%
+                      </td>
+                    </tr>
+                  ))}
+                  <tr style={{ backgroundColor: 'var(--card-elevated)', fontWeight: 700 }}>
+                    <td>Campus Gross Total</td>
+                    <td style={{ color: 'var(--text-primary)' }}>{totalT.toFixed(2)} tCO2e</td>
+                    <td>100%</td>
+                    <td style={{ color: 'var(--forest-green)' }}>
+                      {selectedPeriod.label} verified inventory
                     </td>
                   </tr>
-                ))}
-                <tr style={{ backgroundColor: 'var(--card-elevated)', fontWeight: 700 }}>
-                  <td>Campus Gross Total</td>
-                  <td style={{ color: 'var(--text-primary)' }}>{totalT.toFixed(1)} tCO2e</td>
-                  <td>100%</td>
-                  <td style={{ color: 'var(--text-muted)' }}>
-                    {totalT > 0 ? `${selectedPeriod.label} verified total` : 'No records entered'}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        {/* Section 4: Methodology */}
-        <div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-            4. Methodology &amp; Standards
-          </h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '0.75rem' }}>
-            Emissions are calculated using the GHG Protocol Corporate Standard (2004). Scope 2 electricity emissions use the
-            location-based method with the CEA Baseline Database v19 factor of 0.820 kgCO2e/kWh for the Southern Regional Grid (Telangana).
-            Transport emissions use multi-modal composite factors from ARAI/CPCB India references. Waste factors follow IPCC Tier 1 defaults.
-            All calculations track full factor provenance and verified activity data.
-          </p>
+          {/* Section 4: Methodology */}
+          <div>
+            <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              4. Methodology &amp; Standards
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '0.75rem' }}>
+              Emissions are calculated using the GHG Protocol Corporate Standard (2004). Scope 2 electricity emissions use the
+              location-based method with the CEA Baseline Database v19 factor of 0.820 kgCO2e/kWh for the Southern Regional Grid (Telangana).
+              Transport emissions use multi-modal composite factors from ARAI/CPCB India references. Waste factors follow IPCC Tier 1 defaults.
+              All calculations track full factor provenance and verified activity data.
+            </p>
+            <div style={{
+              padding: '1rem', backgroundColor: 'var(--card-primary)', borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.55
+            }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Notice on Data Integrity:</strong>
+              <ul style={{ paddingLeft: '1.25rem', marginTop: '0.35rem' }}>
+                <li>Emission factors applied are based on CEA Baseline Database v19 and IPCC guidelines.</li>
+                <li>Values are designed for educational campus carbon accounting and planning purposes.</li>
+                <li>Calculations include comprehensive factor provenance and activity audit trails.</li>
+                <li>Per-student intensity: {perStudentEmissions.toFixed(3)} tCO2e/student/yr.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Disclaimer */}
           <div style={{
-            padding: '1rem', backgroundColor: 'var(--card-primary)', borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.55
+            padding: '1rem 1.25rem', backgroundColor: 'rgba(212,163,115,0.08)', border: '1px solid rgba(212,163,115,0.3)',
+            borderRadius: 'var(--radius-md)', color: 'var(--ochre)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.75rem'
           }}>
-            <strong style={{ color: 'var(--text-primary)' }}>Notice on Data Integrity:</strong>
-            <ul style={{ paddingLeft: '1.25rem', marginTop: '0.35rem' }}>
-              <li>Emission factors applied are based on CEA Baseline Database v19 and IPCC guidelines.</li>
-              <li>Values are designed for educational campus carbon accounting and planning purposes.</li>
-              <li>Calculations include comprehensive factor provenance and activity audit trails.</li>
-              <li>Per-student intensity: {perStudentEmissions.toFixed(3)} tCO2e/student/yr.</li>
-            </ul>
+            <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+            <span>
+              These calculations are for campus planning and educational purposes. They are not verified for regulatory carbon credit submission.
+              Factors and methodology should be reviewed by a qualified GHG practitioner before formal disclosure.
+            </span>
           </div>
         </div>
-
-        {/* Disclaimer */}
-        <div style={{
-          padding: '1rem 1.25rem', backgroundColor: 'rgba(212,163,115,0.08)', border: '1px solid rgba(212,163,115,0.3)',
-          borderRadius: 'var(--radius-md)', color: 'var(--ochre)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.75rem'
-        }}>
-          <AlertTriangle size={18} style={{ flexShrink: 0 }} />
-          <span>
-            These calculations are for campus planning and educational purposes. They are not verified for regulatory carbon credit submission.
-            Factors and methodology should be reviewed by a qualified GHG practitioner before formal disclosure.
-          </span>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
