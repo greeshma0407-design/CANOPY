@@ -60,7 +60,6 @@ function mapApiRec(r: RecommendationRead): Recommendation {
 export const RecommendationsPage: React.FC = () => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLive, setIsLive] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Filters state
@@ -78,11 +77,9 @@ export const RecommendationsPage: React.FC = () => {
     try {
       const data = await canopyApi.getRecommendations();
       setRecommendations(data.map(mapApiRec));
-      setIsLive(true);
     } catch (err: unknown) {
-      console.warn('[CANOPY] Recommendations API error:', err);
-      setApiError('Backend unreachable — no recommendations loaded.');
-      setIsLive(false);
+      console.warn('[CANOPY] Recommendations error:', err);
+      setApiError('We could not load recommendations for your campus at this time.');
       setRecommendations([]);
     } finally {
       setIsLoading(false);
@@ -153,11 +150,7 @@ export const RecommendationsPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {isLive
-            ? <Badge variant="success">Live Backend Data</Badge>
-            : <Badge variant="illustrative">Illustrative Cost &amp; Carbon Savings</Badge>
-          }
-          <Button variant="ghost" size="sm" onClick={fetchRecommendations} icon={<RefreshCw size={14} />}>Refresh</Button>
+          <Button variant="secondary" size="sm" onClick={fetchRecommendations} icon={<RefreshCw size={14} />}>Refresh</Button>
           <Button variant="ghost" size="sm" onClick={handleResetFilters} icon={<RotateCcw size={14} />}>Reset Filters</Button>
         </div>
       </div>

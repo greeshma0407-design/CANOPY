@@ -1,8 +1,9 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
+import { LandingPage } from './pages/Landing';
 import { LoginPage } from './pages/Login';
 import { OnboardingPage } from './pages/Onboarding';
 import { JoinCampusPage } from './pages/JoinCampus';
@@ -22,23 +23,22 @@ export const App: React.FC = () => {
       <BrowserRouter>
         <Routes>
           {/* Public Unauthenticated Entry Points */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/onboard" element={<OnboardingPage />} />
           <Route path="/join" element={<JoinCampusPage />} />
 
           {/* Protected Application Workspace */}
           <Route
-            path="/"
             element={
               <ProtectedRoute>
                 <AppShell />
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/overview" replace />} />
-            <Route path="overview" element={<OverviewPage />} />
+            <Route path="/overview" element={<OverviewPage />} />
             <Route
-              path="calculator"
+              path="/calculator"
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'CAMPUS_ADMIN', 'CAMPUS_MANAGER', 'DATA_ENTRY_OPERATOR']}>
                   <CalculatorPage />
@@ -46,25 +46,25 @@ export const App: React.FC = () => {
               }
             />
             <Route
-              path="simulator"
+              path="/simulator"
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'CAMPUS_ADMIN', 'CAMPUS_MANAGER']}>
                   <SimulatorPage />
                 </ProtectedRoute>
               }
             />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="recommendations" element={<RecommendationsPage />} />
-            <Route path="reports" element={<ReportsPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/recommendations" element={<RecommendationsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route
-              path="users"
+              path="/users"
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'CAMPUS_ADMIN']}>
                   <UsersPage />
                 </ProtectedRoute>
               }
             />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>

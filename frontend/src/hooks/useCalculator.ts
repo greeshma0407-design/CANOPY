@@ -53,19 +53,21 @@ function getWasteActivityType(wasteType: string, treatmentRoute: string): string
 }
 
 
-export function useCalculator() {
+export function useCalculator(initialPeriodId?: string) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<EmissionCategory>('electricity');
 
+  const defaultPeriod = initialPeriodId || 'period-cy2025-01';
+
   const [elecForm, setElecForm] = useState<ElectricityInput>({
-    periodId: 'period-2025',
+    periodId: defaultPeriod,
     monthlyKwh: 48000,
     sourceType: 'grid',
     notes: 'Main academic block meter readings'
   });
 
   const [transForm, setTransForm] = useState<TransportInput>({
-    periodId: 'period-2025',
+    periodId: defaultPeriod,
     mode: 'bus',
     activityType: 'passenger_km',
     quantity: 120000,
@@ -74,7 +76,7 @@ export function useCalculator() {
   });
 
   const [wasteForm, setWasteForm] = useState<WasteInput>({
-    periodId: 'period-2025',
+    periodId: defaultPeriod,
     wasteType: 'organic',
     treatmentRoute: 'landfill',
     quantityTonnes: 15.5,
@@ -377,8 +379,15 @@ export function useCalculator() {
     if (calculatedLines.length === 0) return false;
     setIsSaving(true);
 
-    const campusId = targetCampusId || user?.campus_id || 'campus-mlrit-01';
-    const periodId = targetPeriodId || 'period-cy2025-01';
+    const campusId = targetCampusId || user?.campus_id || '';
+    const periodId = targetPeriodId || '';
+
+    // Guard: cannot save without a real campus ID and period ID
+    if (!campusId || !periodId) {
+      setErrors(prev => ({ ...prev, save: 'Your campus or reporting period could not be identified. Please refresh the page and try again.' }));
+      setIsSaving(false);
+      return false;
+    }
 
     const totalKg = calculatedLines.reduce((acc, l) => acc + l.emissions_kg_co2e, 0);
     const totalT  = calculatedLines.reduce((acc, l) => acc + l.emissions_t_co2e, 0);
@@ -452,9 +461,9 @@ export function useCalculator() {
   };
 
   const resetAll = () => {
-    setElecForm({ periodId: 'period-2025', monthlyKwh: 48000, sourceType: 'grid', notes: '' });
-    setTransForm({ periodId: 'period-2025', mode: 'bus', activityType: 'passenger_km', quantity: 120000, tripsCount: 440, notes: '' });
-    setWasteForm({ periodId: 'period-2025', wasteType: 'organic', treatmentRoute: 'landfill', quantityTonnes: 15.5, notes: '' });
+    setElecForm({ periodId: defaultPeriod, monthlyKwh: 48000, sourceType: 'grid', notes: '' });
+    setTransForm({ periodId: defaultPeriod, mode: 'bus', activityType: 'passenger_km', quantity: 120000, tripsCount: 440, notes: '' });
+    setWasteForm({ periodId: defaultPeriod, wasteType: 'organic', treatmentRoute: 'landfill', quantityTonnes: 15.5, notes: '' });
     setCalculatedLines([]);
     setLastCalculatedCategory(null);
     setErrors({});

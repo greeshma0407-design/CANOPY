@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, Menu, LogOut } from 'lucide-react';
+import { Menu, LogOut, Calendar } from 'lucide-react';
 import { ReportingPeriod } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
@@ -29,20 +29,20 @@ export const TopBar: React.FC<TopBarProps> = ({
     navigate('/login', { replace: true });
   };
 
-  const displayName = user?.full_name || 'Dr. Radhika Rao';
+  const displayName = user?.full_name || 'Campus Administrator';
   const displayRole = (role || 'ADMIN').replace(/_/g, ' ');
   const initials = displayName
     .split(' ')
     .map(p => p[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2) || 'CR';
+    .slice(0, 2) || 'CA';
 
   return (
     <header
       style={{
         height: '70px',
-        backgroundColor: 'var(--bg-topbar)',
+        backgroundColor: 'var(--white)',
         borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
@@ -76,25 +76,24 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span
               style={{
                 fontFamily: 'var(--font-editorial)',
-                fontSize: '1.2rem',
-                fontWeight: 600,
+                fontSize: '1.25rem',
+                fontWeight: 400,
                 color: 'var(--text-primary)'
               }}
             >
-              Welcome, {displayName} 🌱
+              {campusName || 'Campus Workspace'}
             </span>
             <span
               style={{
                 fontSize: '0.72rem',
-                padding: '0.15rem 0.5rem',
+                padding: '0.15rem 0.55rem',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(78, 135, 82, 0.18)',
-                color: '#8FD895',
-                border: '1px solid rgba(78, 135, 82, 0.4)',
+                backgroundColor: 'var(--forest-green-subtle)',
+                color: 'var(--forest-green)',
                 fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.3rem'
+                gap: '0.35rem'
               }}
             >
               <span
@@ -102,215 +101,117 @@ export const TopBar: React.FC<TopBarProps> = ({
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  backgroundColor: '#4E8752'
+                  backgroundColor: 'var(--forest-green)'
                 }}
               />
-              {campusName ? `${campusName.split(' ')[0]} · Live` : 'MLRIT · Live'}
+              Active Session
             </span>
           </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            Canopy Dashboard &bull; {pageTitle}
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+            {pageTitle}
           </div>
         </div>
       </div>
 
-      {/* Right Controls: Search, Period Selector, Notifications, User Avatar & Logout */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        {/* Search bar */}
-        <div
-          className="topbar-search"
-          style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center'
-          }}
-        >
-          <Search
-            size={16}
-            style={{
-              position: 'absolute',
-              left: '0.75rem',
-              color: 'var(--text-muted)'
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Search records, factors, assets..."
-            style={{
-              backgroundColor: 'var(--bg-main)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0.45rem 0.85rem 0.45rem 2.2rem',
-              color: 'var(--text-primary)',
-              fontSize: '0.82rem',
-              width: '220px',
-              outline: 'none',
-              transition: 'border-color var(--transition-fast), width var(--transition-fast)'
-            }}
-            onFocus={(e) => (e.target.style.borderColor = 'var(--border-focus)')}
-            onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
-          />
-        </div>
-
+      {/* Right Controls: Reporting Period Selector, User Profile & Logout */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
         {/* Reporting Period Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <select
-            value={selectedPeriodId}
-            onChange={(e) => onSelectPeriod(e.target.value)}
-            style={{
-              backgroundColor: 'var(--card-primary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--text-primary)',
-              fontSize: '0.82rem',
-              fontWeight: 500,
-              padding: '0.45rem 0.75rem',
-              cursor: 'pointer',
-              outline: 'none'
-            }}
-            title="Select Reporting Period"
-          >
-            {reportingPeriods.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Notification Bell */}
-        <button
-          style={{
-            position: 'relative',
-            background: 'var(--card-primary)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text-secondary)',
-            padding: '0.45rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          title="Notifications"
-          aria-label="View notifications"
-        >
-          <Bell size={18} />
-          <span
-            style={{
-              position: 'absolute',
-              top: '5px',
-              right: '5px',
-              width: '7px',
-              height: '7px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--ochre)'
-            }}
-          />
-        </button>
-
-        {/* User Profile Avatar & Role */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.65rem',
-            paddingLeft: '0.5rem',
-            borderLeft: '1px solid var(--border)'
-          }}
-        >
+        {reportingPeriods && reportingPeriods.length > 0 && (
           <div
             style={{
-              width: '34px',
-              height: '34px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              backgroundColor: 'var(--card-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '0.35rem 0.75rem',
+            }}
+          >
+            <Calendar size={14} color="var(--forest-green)" />
+            <select
+              value={selectedPeriodId}
+              onChange={(e) => onSelectPeriod(e.target.value)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '0.82rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+              aria-label="Select Reporting Period"
+            >
+              {reportingPeriods.map((period) => (
+                <option key={period.id} value={period.id} style={{ color: '#2B2D42', background: '#FFFFFF' }}>
+                  {period.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* User Profile Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
               borderRadius: '50%',
-              backgroundColor: 'var(--olive)',
-              color: 'var(--text-primary)',
+              backgroundColor: 'var(--forest-green)',
+              color: 'var(--white)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '0.85rem',
               fontWeight: 600,
-              border: '2px solid var(--sage-dim)'
+              fontSize: '0.85rem',
+              letterSpacing: '0.03em'
             }}
+            title={displayName}
           >
             {initials}
           </div>
-          <div className="topbar-user-info" style={{ display: 'flex', flexDirection: 'column' }}>
-            <span
-              style={{
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                lineHeight: 1.1
-              }}
-            >
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
               {displayName}
             </span>
-            <span
-              style={{
-                fontSize: '0.68rem',
-                color: 'var(--sage)',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em'
-              }}
-            >
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               {displayRole}
             </span>
           </div>
-
-          {/* Sign Out Button */}
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              background: 'transparent',
-              border: '1px solid rgba(165, 181, 139, 0.25)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--text-secondary)',
-              padding: '0.4rem 0.65rem',
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              marginLeft: '0.4rem',
-              transition: 'all var(--transition-fast)'
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(192, 87, 70, 0.5)';
-              (e.currentTarget as HTMLElement).style.color = '#FFAAA0';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(165, 181, 139, 0.25)';
-              (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
-            }}
-            title="Sign out of Canopy"
-          >
-            <LogOut size={14} />
-            <span className="logout-btn-label">Sign Out</span>
-          </button>
         </div>
-      </div>
 
-      <style>{`
-        @media (max-width: 900px) {
-          .mobile-hamburger-btn {
-            display: block !important;
-          }
-          .topbar-search {
-            display: none !important;
-          }
-        }
-        @media (max-width: 650px) {
-          .topbar-user-info {
-            display: none !important;
-          }
-          .logout-btn-label {
-            display: none !important;
-          }
-        }
-      `}</style>
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            padding: '0.5rem',
+            transition: 'all var(--transition-fast)'
+          }}
+          title="Sign Out"
+          aria-label="Sign Out"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'var(--color-danger)';
+            e.currentTarget.style.borderColor = 'rgba(181, 74, 59, 0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--text-secondary)';
+            e.currentTarget.style.borderColor = 'var(--border)';
+          }}
+        >
+          <LogOut size={16} />
+        </button>
+      </div>
     </header>
   );
 };

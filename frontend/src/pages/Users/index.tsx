@@ -338,10 +338,10 @@ export const UsersPage: React.FC = () => {
         <div
           style={{
             padding: '0.85rem 1.25rem',
-            backgroundColor: 'rgba(78, 135, 82, 0.18)',
-            border: '1px solid rgba(78, 135, 82, 0.4)',
+            backgroundColor: 'rgba(54, 90, 64, 0.08)',
+            border: '1px solid rgba(54, 90, 64, 0.25)',
             borderRadius: 'var(--radius-md)',
-            color: '#8FD895',
+            color: 'var(--forest-green)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.65rem',
@@ -357,10 +357,10 @@ export const UsersPage: React.FC = () => {
         <div
           style={{
             padding: '0.85rem 1.25rem',
-            backgroundColor: 'rgba(192, 87, 70, 0.15)',
-            border: '1px solid rgba(192, 87, 70, 0.35)',
+            backgroundColor: 'rgba(192, 87, 70, 0.08)',
+            border: '1px solid rgba(192, 87, 70, 0.25)',
             borderRadius: 'var(--radius-md)',
-            color: '#FFAAA0',
+            color: 'var(--danger)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.65rem',
@@ -618,7 +618,7 @@ export const UsersPage: React.FC = () => {
                   const joinUrl = `${window.location.origin}/join?token=${inv.token}`;
                   return (
                     <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      <td style={{ padding: '0.75rem 1rem', color: '#F2EFE5' }}>{inv.email}</td>
+                      <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)' }}>{inv.email}</td>
                       <td style={{ padding: '0.75rem 1rem' }}>
                         <Badge variant={getRoleBadgeVariant(inv.role)}>{inv.role}</Badge>
                       </td>
@@ -631,9 +631,9 @@ export const UsersPage: React.FC = () => {
                           }}
                           style={{
                             background: 'none',
-                            border: '1px solid rgba(165, 181, 139, 0.25)',
+                            border: '1px solid var(--border)',
                             borderRadius: '4px',
-                            color: '#A5B58B',
+                            color: 'var(--forest-green)',
                             fontSize: '0.75rem',
                             padding: '0.25rem 0.5rem',
                             cursor: 'pointer',
@@ -646,7 +646,7 @@ export const UsersPage: React.FC = () => {
                           <span>Copy Link</span>
                         </button>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', color: '#A0A595', fontSize: '0.78rem' }}>
+                      <td style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                         {new Date(inv.expires_at).toLocaleDateString()}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
@@ -678,11 +678,11 @@ export const UsersPage: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div
               style={{
-                backgroundColor: 'rgba(78, 135, 82, 0.18)',
-                border: '1px solid rgba(78, 135, 82, 0.4)',
+                backgroundColor: 'rgba(54, 90, 64, 0.08)',
+                border: '1px solid rgba(54, 90, 64, 0.25)',
                 borderRadius: '6px',
                 padding: '0.85rem 1rem',
-                color: '#8FD895',
+                color: 'var(--forest-green)',
                 fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -693,18 +693,18 @@ export const UsersPage: React.FC = () => {
               <span>Invitation generated for {generatedInvite.email}!</span>
             </div>
 
-            <p style={{ fontSize: '0.82rem', color: '#A0A595', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
               Share this secure registration link with the invited team member. The token expires in 7 days.
             </p>
 
             <div
               style={{
-                backgroundColor: '#101410',
-                border: '1px solid rgba(165, 181, 139, 0.25)',
+                backgroundColor: 'var(--warm-ivory)',
+                border: '1px solid var(--border)',
                 borderRadius: '6px',
                 padding: '0.65rem 0.85rem',
                 fontSize: '0.78rem',
-                color: '#F2EFE5',
+                color: 'var(--text-primary)',
                 wordBreak: 'break-all',
               }}
             >

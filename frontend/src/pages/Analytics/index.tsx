@@ -30,7 +30,6 @@ export const AnalyticsPage: React.FC = () => {
     monthlyEmissions,
     perStudentEmissions,
     perSqMEmissions,
-    isLiveBackend,
     isLoading,
     refetch
   } = useCampusData();
@@ -114,13 +113,8 @@ export const AnalyticsPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {isLiveBackend ? (
-            <Badge variant="success">Live Backend Connected</Badge>
-          ) : (
-            <Badge variant="illustrative">Illustrative Analytics</Badge>
-          )}
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={() => refetch()}
             loading={isLoading}
@@ -129,7 +123,7 @@ export const AnalyticsPage: React.FC = () => {
             Refresh
           </Button>
           <Button
-            variant="secondary"
+            variant="primary"
             size="sm"
             onClick={handleExportCSV}
             icon={<Download size={14} />}

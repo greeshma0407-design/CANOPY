@@ -7,15 +7,16 @@ import {
   EyeOff,
   AlertCircle,
   ArrowRight,
-  ShieldCheck,
   Building2,
   UserPlus,
   KeyRound,
   X,
+  TreePine
 } from 'lucide-react';
 import { CanopyLogo } from '../../assets/BotanicalIcons';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError, canopyApi } from '../../utils/apiClient';
+import { NATURE_IMAGES } from '../../data/images';
 
 export const LoginPage: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
@@ -47,7 +48,7 @@ export const LoginPage: React.FC = () => {
 
     const cleanEmail = email.trim();
     if (!cleanEmail) {
-      setErrorMsg('Please enter your email address.');
+      setErrorMsg('Please enter your institutional email address.');
       return;
     }
     if (!password) {
@@ -69,9 +70,9 @@ export const LoginPage: React.FC = () => {
       if (apiErr?.status === 401) {
         setErrorMsg('Invalid email or password. Please verify your credentials.');
       } else if (apiErr?.status === 403) {
-        setErrorMsg(apiErr.message || 'Account has been deactivated. Contact an administrator.');
+        setErrorMsg(apiErr.message || 'Account has been deactivated. Please contact an administrator.');
       } else {
-        setErrorMsg(apiErr?.message || 'Unable to connect to authentication server. Please try again.');
+        setErrorMsg(apiErr?.message || "We couldn't connect right now. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -88,7 +89,7 @@ export const LoginPage: React.FC = () => {
       setForgotStatus(res.message);
     } catch {
       setForgotStatus(
-        'Password recovery dispatched. For immediate assistance, your institution’s Campus Administrator can reset your password directly.'
+        'If an account exists for this address, password recovery instructions have been dispatched. For immediate assistance, your campus administrator can reset your password directly.'
       );
     } finally {
       setIsForgotLoading(false);
@@ -99,112 +100,145 @@ export const LoginPage: React.FC = () => {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: '#101410',
-        color: '#F2EFE5',
+        backgroundColor: 'var(--warm-ivory)',
+        color: 'var(--charcoal)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1.5rem',
-        position: 'relative',
-        overflow: 'hidden',
       }}
     >
-      {/* Background ambient botanical glow */}
       <div
         style={{
-          position: 'absolute',
-          top: '-15%',
-          left: '20%',
-          width: '600px',
-          height: '600px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(165, 181, 139, 0.08) 0%, rgba(16, 20, 16, 0) 70%)',
-          pointerEvents: 'none',
+          width: '100%',
+          maxWidth: '1020px',
+          backgroundColor: 'var(--white)',
+          borderRadius: 'var(--radius-xl)',
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-lg)',
+          border: '1px solid var(--border)',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          minHeight: '620px'
         }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '-15%',
-          right: '15%',
-          width: '500px',
-          height: '500px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(212, 163, 115, 0.05) 0%, rgba(16, 20, 16, 0) 70%)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      <div style={{ width: '100%', maxWidth: '440px', position: 'relative', zIndex: 1 }}>
-        {/* Canopy Header / Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              backgroundColor: '#151B16',
-              border: '1px solid rgba(165, 181, 139, 0.3)',
-              marginBottom: '1rem',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-            }}
-          >
-            <CanopyLogo size={36} />
-          </div>
-          <h1
-            style={{
-              fontFamily: 'Playfair Display, Georgia, serif',
-              fontSize: '2.1rem',
-              fontWeight: 600,
-              letterSpacing: '-0.02em',
-              color: '#F2EFE5',
-              margin: '0 0 0.35rem 0',
-            }}
-          >
-            CANOPY
-          </h1>
-          <p
-            style={{
-              fontSize: '0.9rem',
-              color: '#A5B58B',
-              fontStyle: 'italic',
-              margin: 0,
-            }}
-          >
-            Small shifts. Greener campuses.
-          </p>
-        </div>
-
-        {/* Login Card */}
+        className="auth-split-card"
+      >
+        {/* Left: Nature Photograph Split Panel */}
         <div
           style={{
-            backgroundColor: '#151B16',
-            border: '1px solid rgba(165, 181, 139, 0.25)',
-            borderRadius: '8px',
-            padding: '2rem',
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+            position: 'relative',
+            backgroundImage: `linear-gradient(rgba(43, 45, 66, 0.45), rgba(54, 90, 64, 0.7)), url(${NATURE_IMAGES.authCover})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '3rem 2.5rem',
+            color: 'var(--white)'
           }}
+          className="auth-image-panel"
         >
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#F2EFE5', margin: '0 0 0.25rem 0' }}>
-              Sign In to Your Campus
+          {/* Top Logo */}
+          <Link
+            to="/"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              textDecoration: 'none',
+              color: 'var(--white)',
+              zIndex: 1
+            }}
+          >
+            <CanopyLogo size={32} />
+            <span
+              style={{
+                fontFamily: 'var(--font-editorial)',
+                fontSize: '1.6rem',
+                fontWeight: 400,
+                letterSpacing: '-0.02em',
+                color: 'var(--white)'
+              }}
+            >
+              Canopy
+            </span>
+          </Link>
+
+          {/* Bottom Quote / Mission */}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                backdropFilter: 'blur(6px)',
+                padding: '0.25rem 0.75rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                marginBottom: '1rem',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase'
+              }}
+            >
+              <TreePine size={13} />
+              Educational Sustainability
+            </div>
+            <h2
+              style={{
+                fontFamily: 'var(--font-editorial)',
+                fontSize: '2rem',
+                lineHeight: 1.25,
+                fontWeight: 400,
+                color: 'var(--white)',
+                marginBottom: '0.75rem'
+              }}
+            >
+              Small shifts.<br />Greener campuses.
             </h2>
-            <p style={{ fontSize: '0.82rem', color: '#6B705C', margin: 0 }}>
-              Access your institution’s carbon accounting inventory and analytics.
+            <p style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '0.95rem', lineHeight: 1.5 }}>
+              Standardized environmental accounting and decarbonization intelligence for colleges and universities.
+            </p>
+          </div>
+        </div>
+
+        {/* Right: Login Form */}
+        <div
+          style={{
+            padding: '3.5rem 3rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            backgroundColor: 'var(--white)'
+          }}
+          className="auth-form-panel"
+        >
+          <div style={{ marginBottom: '2rem' }}>
+            <h1
+              style={{
+                fontFamily: 'var(--font-editorial)',
+                fontSize: '1.85rem',
+                fontWeight: 400,
+                color: 'var(--charcoal)',
+                marginBottom: '0.35rem'
+              }}
+            >
+              Sign In
+            </h1>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              Access your institution's carbon accounting workspace.
             </p>
           </div>
 
           {errorMsg && (
             <div
               style={{
-                backgroundColor: 'rgba(217, 83, 79, 0.15)',
-                border: '1px solid rgba(217, 83, 79, 0.4)',
-                borderRadius: '6px',
+                backgroundColor: 'var(--color-danger-bg)',
+                border: '1px solid rgba(181, 74, 59, 0.25)',
+                borderRadius: 'var(--radius-md)',
                 padding: '0.75rem 1rem',
-                color: '#ff8585',
+                color: 'var(--color-danger)',
                 fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'flex-start',
@@ -217,30 +251,19 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {/* Email Field */}
-            <div>
-              <label
-                htmlFor="email"
-                style={{
-                  display: 'block',
-                  fontSize: '0.82rem',
-                  fontWeight: 500,
-                  color: '#A5B58B',
-                  marginBottom: '0.4rem',
-                }}
-              >
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label htmlFor="email" className="form-label">
                 Institutional Email Address
               </label>
-              <div style={{ position: 'relative' }}>
+              <div className="input-wrapper">
                 <Mail
                   size={16}
                   style={{
                     position: 'absolute',
                     left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#6B705C',
+                    color: 'var(--text-muted)',
                   }}
                 />
                 <input
@@ -251,32 +274,16 @@ export const LoginPage: React.FC = () => {
                   placeholder="name@college.edu.in"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    backgroundColor: '#101410',
-                    border: '1px solid rgba(165, 181, 139, 0.25)',
-                    borderRadius: '6px',
-                    padding: '0.65rem 0.85rem 0.65rem 2.4rem',
-                    color: '#F2EFE5',
-                    fontSize: '0.88rem',
-                    outline: 'none',
-                  }}
+                  className="form-input"
+                  style={{ paddingLeft: '2.4rem' }}
                 />
               </div>
             </div>
 
             {/* Password Field */}
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                <label
-                  htmlFor="password"
-                  style={{
-                    fontSize: '0.82rem',
-                    fontWeight: 500,
-                    color: '#A5B58B',
-                  }}
-                >
+                <label htmlFor="password" className="form-label" style={{ margin: 0 }}>
                   Password
                 </label>
                 <button
@@ -285,8 +292,9 @@ export const LoginPage: React.FC = () => {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#D4A373',
-                    fontSize: '0.78rem',
+                    color: 'var(--forest-green)',
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
                     cursor: 'pointer',
                     padding: 0,
                   }}
@@ -294,15 +302,13 @@ export const LoginPage: React.FC = () => {
                   Forgot password?
                 </button>
               </div>
-              <div style={{ position: 'relative' }}>
+              <div className="input-wrapper">
                 <Lock
                   size={16}
                   style={{
                     position: 'absolute',
                     left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#6B705C',
+                    color: 'var(--text-muted)',
                   }}
                 />
                 <input
@@ -313,17 +319,8 @@ export const LoginPage: React.FC = () => {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  style={{
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    backgroundColor: '#101410',
-                    border: '1px solid rgba(165, 181, 139, 0.25)',
-                    borderRadius: '6px',
-                    padding: '0.65rem 2.4rem 0.65rem 2.4rem',
-                    color: '#F2EFE5',
-                    fontSize: '0.88rem',
-                    outline: 'none',
-                  }}
+                  className="form-input"
+                  style={{ paddingLeft: '2.4rem', paddingRight: '2.4rem' }}
                 />
                 <button
                   type="button"
@@ -331,16 +328,15 @@ export const LoginPage: React.FC = () => {
                   style={{
                     position: 'absolute',
                     right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
                     background: 'none',
                     border: 'none',
-                    color: '#6B705C',
+                    color: 'var(--text-muted)',
                     cursor: 'pointer',
                     padding: 0,
                     display: 'flex',
                     alignItems: 'center',
                   }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -348,16 +344,16 @@ export const LoginPage: React.FC = () => {
             </div>
 
             {/* Remember Me */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#A0A595' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   style={{
-                    accentColor: '#A5B58B',
-                    width: '14px',
-                    height: '14px',
+                    accentColor: 'var(--forest-green)',
+                    width: '15px',
+                    height: '15px',
                     cursor: 'pointer',
                   }}
                 />
@@ -369,26 +365,17 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
+              className="btn btn-primary"
               style={{
-                backgroundColor: '#A5B58B',
-                color: '#101410',
-                border: 'none',
-                borderRadius: '6px',
+                width: '100%',
                 padding: '0.75rem 1rem',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.7 : 1,
-                display: 'flex',
-                alignItems: 'center',
+                fontSize: '0.95rem',
                 justifyContent: 'center',
-                gap: '0.5rem',
-                marginTop: '0.35rem',
-                transition: 'background-color 0.15s ease',
+                marginTop: '0.5rem'
               }}
             >
               {isLoading ? (
-                <span>Authenticating…</span>
+                <span>Signing In…</span>
               ) : (
                 <>
                   <span>Sign In</span>
@@ -398,12 +385,12 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* New Campus & Invitations Action Row */}
+          {/* Register / Join links */}
           <div
             style={{
-              marginTop: '1.75rem',
-              paddingTop: '1.25rem',
-              borderTop: '1px solid rgba(165, 181, 139, 0.15)',
+              marginTop: '2rem',
+              paddingTop: '1.5rem',
+              borderTop: '1px solid var(--border)',
               display: 'flex',
               flexDirection: 'column',
               gap: '0.75rem',
@@ -416,18 +403,17 @@ export const LoginPage: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                backgroundColor: 'rgba(165, 181, 139, 0.08)',
-                border: '1px solid rgba(165, 181, 139, 0.25)',
-                color: '#F2EFE5',
-                padding: '0.65rem 1rem',
-                borderRadius: '6px',
-                fontSize: '0.85rem',
-                fontWeight: 500,
+                backgroundColor: 'var(--forest-green-subtle)',
+                border: '1px solid rgba(54, 90, 64, 0.2)',
+                color: 'var(--forest-green)',
+                padding: '0.7rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.88rem',
+                fontWeight: 600,
                 textDecoration: 'none',
-                transition: 'background-color 0.15s ease',
               }}
             >
-              <Building2 size={16} color="#A5B58B" />
+              <Building2 size={16} />
               <span>Register New Institution Campus</span>
             </Link>
 
@@ -439,11 +425,11 @@ export const LoginPage: React.FC = () => {
                 justifyContent: 'center',
                 gap: '0.5rem',
                 backgroundColor: 'transparent',
-                border: '1px dashed rgba(212, 163, 115, 0.3)',
-                color: '#D4A373',
-                padding: '0.6rem 1rem',
-                borderRadius: '6px',
-                fontSize: '0.82rem',
+                border: '1px dashed var(--border)',
+                color: 'var(--text-secondary)',
+                padding: '0.65rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.85rem',
                 textDecoration: 'none',
               }}
             >
@@ -452,44 +438,15 @@ export const LoginPage: React.FC = () => {
             </Link>
           </div>
         </div>
-
-        {/* Footer info */}
-        <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.75rem', color: '#6B705C' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-            <ShieldCheck size={14} color="#A5B58B" />
-            <span>Multi-Tenant Architecture Active &bull; Strict Campus Isolation</span>
-          </div>
-        </div>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '1rem',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#151B16',
-              border: '1px solid rgba(165, 181, 139, 0.3)',
-              borderRadius: '8px',
-              padding: '1.75rem',
-              maxWidth: '420px',
-              width: '100%',
-              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.6)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#D4A373', fontWeight: 600 }}>
-                <KeyRound size={18} />
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--charcoal)', fontWeight: 600 }}>
+                <KeyRound size={18} color="var(--forest-green)" />
                 <span>Password Recovery</span>
               </div>
               <button
@@ -498,102 +455,84 @@ export const LoginPage: React.FC = () => {
                   setShowForgotModal(false);
                   setForgotStatus(null);
                 }}
-                style={{ background: 'none', border: 'none', color: '#A0A595', cursor: 'pointer', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            {forgotStatus ? (
-              <div>
-                <p style={{ fontSize: '0.85rem', color: '#A5B58B', lineHeight: '1.5', marginBottom: '1.25rem' }}>
-                  {forgotStatus}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForgotModal(false);
-                    setForgotStatus(null);
-                  }}
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#A5B58B',
-                    color: '#101410',
-                    border: 'none',
-                    borderRadius: '5px',
-                    padding: '0.6rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Return to Sign In
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleForgotPassword}>
-                <p style={{ fontSize: '0.82rem', color: '#A0A595', lineHeight: '1.4', marginBottom: '1rem' }}>
-                  Enter your registered institutional email address. Password reset instructions will be provided or contact your Campus Administrator for instant credential recovery.
-                </p>
-                <div style={{ marginBottom: '1rem' }}>
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@college.edu.in"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    style={{
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      backgroundColor: '#101410',
-                      border: '1px solid rgba(165, 181, 139, 0.25)',
-                      borderRadius: '5px',
-                      padding: '0.65rem 0.85rem',
-                      color: '#F2EFE5',
-                      fontSize: '0.88rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className="modal-body">
+              {forgotStatus ? (
+                <div>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--forest-green)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+                    {forgotStatus}
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setShowForgotModal(false)}
-                    style={{
-                      flex: 1,
-                      backgroundColor: 'transparent',
-                      border: '1px solid rgba(165, 181, 139, 0.25)',
-                      color: '#A0A595',
-                      borderRadius: '5px',
-                      padding: '0.6rem',
-                      fontSize: '0.85rem',
-                      cursor: 'pointer',
+                    onClick={() => {
+                      setShowForgotModal(false);
+                      setForgotStatus(null);
                     }}
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center' }}
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isForgotLoading}
-                    style={{
-                      flex: 1.5,
-                      backgroundColor: '#A5B58B',
-                      color: '#101410',
-                      border: 'none',
-                      borderRadius: '5px',
-                      padding: '0.6rem',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      cursor: isForgotLoading ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {isForgotLoading ? 'Sending…' : 'Send Instructions'}
+                    Return to Sign In
                   </button>
                 </div>
-              </form>
-            )}
+              ) : (
+                <form onSubmit={handleForgotPassword}>
+                  <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '1.25rem' }}>
+                    Enter your registered institutional email address. Password reset instructions will be provided or contact your Campus Administrator for instant credential recovery.
+                  </p>
+                  <div className="form-group">
+                    <label className="form-label">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="name@college.edu.in"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(false)}
+                      className="btn btn-secondary"
+                      style={{ flex: 1 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isForgotLoading}
+                      className="btn btn-primary"
+                      style={{ flex: 1.5 }}
+                    >
+                      {isForgotLoading ? 'Sending…' : 'Send Instructions'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 860px) {
+          .auth-split-card {
+            grid-template-columns: 1fr !important;
+          }
+          .auth-image-panel {
+            display: none !important;
+          }
+          .auth-form-panel {
+            padding: 2.5rem 1.75rem !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

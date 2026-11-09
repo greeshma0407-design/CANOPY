@@ -14,7 +14,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   max = 100,
   label,
   showPercentage = true,
-  color = 'var(--sage)',
+  color = 'var(--forest-green)',
   height = 8
 }) => {
   const percentage = Math.min(100, Math.max(0, Math.round((value / max) * 100)));

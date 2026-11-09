@@ -26,18 +26,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div
         style={{
-          backgroundColor: '#1B211C',
-          border: '1px solid #303A30',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E6E1D6',
           borderRadius: '8px',
           padding: '0.75rem 1rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          boxShadow: '0 4px 14px rgba(43, 45, 66, 0.08)',
           fontSize: '0.82rem'
         }}
       >
-        <div style={{ fontWeight: 600, color: '#F2EFE5', marginBottom: '0.4rem' }}>
-          {label} 2025
+        <div style={{ fontWeight: 600, color: '#2B2D42', marginBottom: '0.4rem' }}>
+          {label}
         </div>
-        <div style={{ color: '#A5B58B', marginBottom: '0.2rem' }}>
+        <div style={{ color: '#365A40', marginBottom: '0.2rem' }}>
           Per Student: <strong>{payload[0]?.value} kgCO2e</strong>
         </div>
         <div style={{ color: '#D4A373' }}>
@@ -57,17 +57,17 @@ export const IntensityChart: React.FC<IntensityChartProps> = ({
     <div style={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#232B24" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#EFECE4" />
           <XAxis
             dataKey="month"
-            stroke="#737A6E"
-            tick={{ fill: '#A7ADA1', fontSize: 12 }}
-            tickLine={{ stroke: '#303A30' }}
+            stroke="#7E8490"
+            tick={{ fill: '#555A64', fontSize: 12 }}
+            tickLine={{ stroke: '#E6E1D6' }}
           />
           <YAxis
-            stroke="#737A6E"
-            tick={{ fill: '#A7ADA1', fontSize: 12 }}
-            tickLine={{ stroke: '#303A30' }}
+            stroke="#7E8490"
+            tick={{ fill: '#555A64', fontSize: 12 }}
+            tickLine={{ stroke: '#E6E1D6' }}
             unit=" kg"
           />
           <Tooltip content={<CustomTooltip />} />
@@ -75,15 +75,15 @@ export const IntensityChart: React.FC<IntensityChartProps> = ({
             verticalAlign="bottom"
             height={32}
             wrapperStyle={{ paddingTop: '6px', fontSize: '12px' }}
-            formatter={(value) => <span style={{ color: '#A7ADA1' }}>{value}</span>}
+            formatter={(value) => <span style={{ color: '#555A64' }}>{value}</span>}
           />
           <Line
             type="monotone"
             dataKey="perStudentKg"
             name="Emissions per Student (kgCO2e)"
-            stroke="#A5B58B"
+            stroke="#365A40"
             strokeWidth={2}
-            dot={{ r: 3, fill: '#A5B58B' }}
+            dot={{ r: 3, fill: '#365A40' }}
           />
           <Line
             type="monotone"

@@ -6,13 +6,15 @@ interface EmptyStateProps {
   title: string;
   description: string;
   action?: React.ReactNode;
+  style?: React.CSSProperties;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   icon: Icon = Sprout,
   title,
   description,
-  action
+  action,
+  style
 }) => {
   return (
     <div
@@ -25,29 +27,31 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         justifyContent: 'center',
         border: '1px dashed var(--border)',
         borderRadius: 'var(--radius-lg)',
-        backgroundColor: 'rgba(27, 33, 28, 0.4)'
+        backgroundColor: 'var(--forest-green-subtle)',
+        ...style
       }}
     >
       <div
         style={{
-          width: '54px',
-          height: '54px',
+          width: '56px',
+          height: '56px',
           borderRadius: '50%',
-          backgroundColor: 'var(--card-elevated)',
-          color: 'var(--sage)',
+          backgroundColor: 'var(--white)',
+          color: 'var(--forest-green)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: '1rem',
-          border: '1px solid var(--border)'
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-sm)'
         }}
       >
         <Icon size={26} />
       </div>
-      <h3 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+      <h3 style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.4rem', fontWeight: 400 }}>
         {title}
       </h3>
-      <p style={{ maxWidth: '420px', fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: action ? '1.25rem' : 0 }}>
+      <p style={{ maxWidth: '440px', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: action ? '1.25rem' : 0, lineHeight: 1.5 }}>
         {description}
       </p>
       {action && <div>{action}</div>}

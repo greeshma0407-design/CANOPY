@@ -4,6 +4,7 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react';
 import { CanopyLogo } from '../../assets/BotanicalIcons';
 import { canopyApi } from '../../utils/apiClient';
@@ -35,7 +36,7 @@ export const JoinCampusPage: React.FC = () => {
       setInviteDetails(data);
     } catch (err: any) {
       setInviteDetails(null);
-      setVerifyError(err?.message || 'Invalid or expired invitation token.');
+      setVerifyError(err?.message || 'The invitation link or token is invalid or has expired.');
     } finally {
       setIsVerifying(false);
     }
@@ -69,7 +70,7 @@ export const JoinCampusPage: React.FC = () => {
       });
       navigate('/overview', { replace: true });
     } catch (err: any) {
-      setSubmitError(err?.message || 'Failed to complete registration.');
+      setSubmitError(err?.message || 'We could not complete your registration. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -79,57 +80,70 @@ export const JoinCampusPage: React.FC = () => {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: '#101410',
-        color: '#F2EFE5',
+        backgroundColor: 'var(--warm-ivory)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '2rem 1.5rem',
+        padding: '2.5rem 1.5rem',
       }}
     >
-      <div style={{ maxWidth: '520px', width: '100%', marginBottom: '1.5rem', textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
-          <CanopyLogo size={38} />
+      <div style={{ maxWidth: '480px', width: '100%', marginBottom: '1.75rem', textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <CanopyLogo size={42} />
         </div>
-        <h1 style={{ fontFamily: 'Playfair Display, Georgia, serif', fontSize: '1.9rem', color: '#F2EFE5' }}>
+        <h1
+          style={{
+            fontFamily: 'var(--font-editorial)',
+            fontSize: '2.1rem',
+            color: 'var(--text-primary)',
+            lineHeight: 1.2,
+          }}
+        >
           Join Your Campus Team
         </h1>
-        <p style={{ color: '#A0A595', fontSize: '0.88rem', marginTop: '0.35rem' }}>
-          Accept your invitation to collaborate on your institution’s carbon accounting inventory.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '0.4rem', lineHeight: 1.5 }}>
+          Accept your institutional invitation to collaborate on verified carbon accounting.
         </p>
       </div>
 
       <div
         style={{
-          maxWidth: '520px',
+          maxWidth: '480px',
           width: '100%',
-          backgroundColor: '#151B16',
-          border: '1px solid rgba(165, 181, 139, 0.25)',
-          borderRadius: '10px',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
           padding: '2rem',
-          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.45)',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         {!inviteDetails ? (
           <div>
-            <h3 style={{ fontSize: '1rem', color: '#A5B58B', marginBottom: '0.75rem' }}>
+            <h3
+              style={{
+                fontFamily: 'var(--font-editorial)',
+                fontSize: '1.25rem',
+                color: 'var(--forest-green)',
+                marginBottom: '0.5rem',
+              }}
+            >
               Enter Invitation Token
             </h3>
-            <p style={{ fontSize: '0.82rem', color: '#A0A595', marginBottom: '1rem' }}>
-              Your Campus Administrator provided you with a secure invitation link or token.
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              Your campus administrator provided you with a secure invitation link or token.
             </p>
 
             {verifyError && (
               <div
                 style={{
-                  backgroundColor: 'rgba(217, 83, 79, 0.15)',
-                  border: '1px solid rgba(217, 83, 79, 0.4)',
-                  borderRadius: '6px',
+                  backgroundColor: 'rgba(192, 87, 70, 0.08)',
+                  border: '1px solid rgba(192, 87, 70, 0.25)',
+                  borderRadius: 'var(--radius-md)',
                   padding: '0.75rem 1rem',
-                  color: '#ff8585',
+                  color: 'var(--danger)',
                   fontSize: '0.85rem',
-                  marginBottom: '1rem',
+                  marginBottom: '1.25rem',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
@@ -140,79 +154,95 @@ export const JoinCampusPage: React.FC = () => {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
               <input
                 type="text"
-                placeholder="Paste invitation token here..."
+                placeholder="Paste invitation token..."
                 value={tokenInput}
-                onChange={e => setTokenInput(e.target.value)}
-                style={inputStyle}
+                onChange={(e) => setTokenInput(e.target.value)}
+                className="canopy-input"
+                style={{ flex: 1 }}
               />
               <button
                 type="button"
                 disabled={isVerifying || !tokenInput.trim()}
                 onClick={() => verifyToken(tokenInput)}
-                style={{
-                  backgroundColor: '#A5B58B',
-                  color: '#101410',
-                  border: 'none',
-                  borderRadius: '5px',
-                  padding: '0.65rem 1.25rem',
-                  fontWeight: 600,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
+                className="btn btn-primary"
+                style={{ whiteSpace: 'nowrap' }}
               >
-                {isVerifying ? 'Verifying…' : 'Verify'}
+                {isVerifying ? 'Checking…' : 'Verify'}
               </button>
             </div>
 
-            <div style={{ textAlign: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(165, 181, 139, 0.15)' }}>
-              <Link to="/login" style={{ color: '#A0A595', fontSize: '0.85rem', textDecoration: 'none' }}>
+            <div
+              style={{
+                textAlign: 'center',
+                paddingTop: '1.25rem',
+                borderTop: '1px solid var(--border-light)',
+              }}
+            >
+              <Link
+                to="/login"
+                style={{
+                  color: 'var(--forest-green)',
+                  fontSize: '0.88rem',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                }}
+              >
                 &larr; Back to Sign In
               </Link>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Valid Invitation Badge */}
+            {/* Valid Invitation Card */}
             <div
               style={{
-                backgroundColor: 'rgba(165, 181, 139, 0.12)',
-                border: '1px solid rgba(165, 181, 139, 0.3)',
-                borderRadius: '6px',
-                padding: '0.85rem 1rem',
+                backgroundColor: 'rgba(54, 90, 64, 0.05)',
+                border: '1px solid rgba(54, 90, 64, 0.2)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem 1.25rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#A5B58B', fontSize: '0.88rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  color: 'var(--forest-green)',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  marginBottom: '0.5rem',
+                }}
+              >
                 <CheckCircle2 size={16} />
-                <span>Invitation Verified</span>
+                <span>Verified Campus Invitation</span>
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#F2EFE5' }}>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
                 <strong>Campus:</strong> {inviteDetails.campus_name}
               </div>
               {inviteDetails.institution_name && (
-                <div style={{ fontSize: '0.8rem', color: '#A0A595' }}>
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
                   <strong>Institution:</strong> {inviteDetails.institution_name}
                 </div>
               )}
-              <div style={{ fontSize: '0.8rem', color: '#D4A373', marginTop: '0.2rem' }}>
-                <strong>Assigned Role:</strong> {inviteDetails.role}
+              <div style={{ fontSize: '0.82rem', color: 'var(--earth-ochre)', fontWeight: 600, marginBottom: '0.25rem' }}>
+                <strong>Assigned Role:</strong> {inviteDetails.role.replace(/_/g, ' ')}
               </div>
-              <div style={{ fontSize: '0.8rem', color: '#A0A595', marginTop: '0.2rem' }}>
-                <strong>Invited Email:</strong> {inviteDetails.email}
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                <strong>Invited Account:</strong> {inviteDetails.email}
               </div>
             </div>
 
             {submitError && (
               <div
                 style={{
-                  backgroundColor: 'rgba(217, 83, 79, 0.15)',
-                  border: '1px solid rgba(217, 83, 79, 0.4)',
-                  borderRadius: '6px',
+                  backgroundColor: 'rgba(192, 87, 70, 0.08)',
+                  border: '1px solid rgba(192, 87, 70, 0.25)',
+                  borderRadius: 'var(--radius-md)',
                   padding: '0.75rem 1rem',
-                  color: '#ff8585',
+                  color: 'var(--danger)',
                   fontSize: '0.85rem',
                   display: 'flex',
                   alignItems: 'center',
@@ -225,22 +255,38 @@ export const JoinCampusPage: React.FC = () => {
             )}
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: '#A0A595', marginBottom: '0.35rem' }}>
-                Your Full Name <span style={{ color: '#D4A373' }}>*</span>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.35rem',
+                }}
+              >
+                Full Name <span style={{ color: 'var(--earth-ochre)' }}>*</span>
               </label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Priya Sharma"
                 value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                style={inputStyle}
+                onChange={(e) => setFullName(e.target.value)}
+                className="canopy-input"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: '#A0A595', marginBottom: '0.35rem' }}>
-                Set Password <span style={{ color: '#D4A373' }}>* (Min 8 characters)</span>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.35rem',
+                }}
+              >
+                Set Password <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>(Min. 8 characters)</span>
               </label>
               <input
                 type="password"
@@ -248,16 +294,32 @@ export const JoinCampusPage: React.FC = () => {
                 minLength={8}
                 placeholder="Choose a strong password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
-                style={inputStyle}
+                onChange={(e) => setPassword(e.target.value)}
+                className="canopy-input"
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '0.5rem',
+                paddingTop: '0.75rem',
+                borderTop: '1px solid var(--border-light)',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setInviteDetails(null)}
-                style={{ background: 'none', border: 'none', color: '#A0A595', fontSize: '0.85rem', cursor: 'pointer' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
               >
                 Use different token
               </button>
@@ -265,40 +327,35 @@ export const JoinCampusPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
+                className="btn btn-primary"
                 style={{
-                  backgroundColor: '#A5B58B',
-                  color: '#101410',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '0.7rem 1.5rem',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  opacity: isSubmitting ? 0.7 : 1,
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.4rem',
                 }}
               >
-                {isSubmitting ? 'Registering…' : 'Complete Registration'}
+                {isSubmitting ? 'Creating account…' : 'Complete Setup'}
                 <ArrowRight size={16} />
               </button>
             </div>
           </form>
         )}
       </div>
+
+      {/* Trust reassurance */}
+      <div
+        style={{
+          marginTop: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          color: 'var(--text-muted)',
+          fontSize: '0.82rem',
+        }}
+      >
+        <ShieldCheck size={15} color="var(--forest-green)" />
+        <span>End-to-end encrypted campus sustainability records</span>
+      </div>
     </div>
   );
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  backgroundColor: '#101410',
-  border: '1px solid rgba(165, 181, 139, 0.25)',
-  borderRadius: '5px',
-  padding: '0.65rem 0.85rem',
-  color: '#F2EFE5',
-  fontSize: '0.88rem',
-  outline: 'none',
-  boxSizing: 'border-box',
 };

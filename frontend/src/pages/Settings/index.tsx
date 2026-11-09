@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Trash2,
   Save,
   CheckCircle,
-  RefreshCw
 } from 'lucide-react';
 import { canopyApi } from '../../utils/apiClient';
 import { Card } from '../../components/ui/Card';
@@ -16,30 +15,12 @@ import { mockEmissionFactors } from '../../data/emissionFactors';
 import { Campus } from '../../types';
 
 export const SettingsPage: React.FC = () => {
-  const { campus, setCampus, reportingPeriods } = useCampusData();
+  const { campus, setCampus } = useCampusData();
 
   // Local form state cloned from campus
   const [formData, setFormData] = useState<Campus>({ ...campus });
   const [preferredUnit, setPreferredUnit] = useState<string>('tCO2e');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
-
-  // Backend health state
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'offline'>('checking');
-  const [backendInfo, setBackendInfo] = useState<{ service?: string; version?: string } | null>(null);
-
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const health = await canopyApi.healthCheck();
-        setBackendStatus('connected');
-        setBackendInfo({ service: health.service, version: health.methodology_version });
-      } catch {
-        setBackendStatus('offline');
-        setBackendInfo(null);
-      }
-    };
-    checkHealth();
-  }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,15 +42,15 @@ export const SettingsPage: React.FC = () => {
         ...formData,
         population: (formData.studentCount || 0) + (formData.facultyCount || 0) + (formData.staffCount || 0)
       });
-      setSaveSuccessMsg('Campus profile successfully saved to backend database.');
+      setSaveSuccessMsg('Campus profile successfully updated.');
       setTimeout(() => setSaveSuccessMsg(null), 3500);
     } catch (err: any) {
-      alert(err?.message || 'Failed to update campus profile on backend server.');
+      alert(err?.message || "We couldn't update your campus profile right now. Please try again.");
     }
   };
 
   const handleClearSessionData = () => {
-    if (window.confirm('Are you sure you want to clear all locally cached session calculations and scenarios?')) {
+    if (window.confirm('Are you sure you want to clear locally cached session drafts?')) {
       window.localStorage.removeItem('canopy_session_records');
       window.localStorage.removeItem('canopy_saved_scenarios');
       window.localStorage.removeItem('canopy_recommendations_list');
@@ -78,7 +59,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem', maxWidth: '1080px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1080px' }}>
       {/* Top Banner */}
       <div
         style={{
@@ -93,14 +74,11 @@ export const SettingsPage: React.FC = () => {
       >
         <div>
           <h1 style={{ fontSize: '1.8rem', color: 'var(--text-primary)' }}>
-            System Settings & Emission Factors
+            Campus Settings & Preferences
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            Configure campus institutional boundaries, reporting preferences, and audit emission factor catalogues.
+            Configure institutional boundaries, reporting metrics, and verified emission factor references.
           </p>
-        </div>
-        <div>
-          <Badge variant="illustrative">Session Local Storage</Badge>
         </div>
       </div>
 
@@ -108,10 +86,10 @@ export const SettingsPage: React.FC = () => {
         <div
           style={{
             padding: '0.85rem 1.25rem',
-            backgroundColor: 'rgba(78, 135, 82, 0.18)',
-            border: '1px solid rgba(78, 135, 82, 0.4)',
+            backgroundColor: 'var(--forest-green-subtle)',
+            border: '1px solid rgba(54, 90, 64, 0.25)',
             borderRadius: 'var(--radius-md)',
-            color: '#8FD895',
+            color: 'var(--forest-green)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.65rem',
@@ -123,292 +101,206 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Campus Profile Configuration */}
+      {/* 1. Institutional Boundary Profile */}
       <Card
-        title="1. Campus Profile & Boundaries"
-        subtitle="Demographic and structural parameters used for intensity normalizations"
+        title="1. Institutional Campus Profile"
+        subtitle="Operational parameters used for per-capita and built-up area intensity calculations"
       >
-        <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '0.5rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+        <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '0.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
             <Input
-              label="Institution Full Name"
+              label="Campus Name"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              required
             />
             <Input
-              label="Campus Code"
-              value={formData.code}
-              onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+              label="Parent Institution / University"
+              value={formData.institution_name || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, institution_name: e.target.value }))}
             />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+            <Select
+              label="Institution Classification"
+              options={[
+                { value: 'Autonomous Engineering College', label: 'Autonomous Engineering College' },
+                { value: 'State Public University', label: 'State Public University' },
+                { value: 'Private University', label: 'Private University' },
+                { value: 'Institute of National Importance', label: 'Institute of National Importance (IIT/NIT)' },
+                { value: 'Liberal Arts & Sciences', label: 'Liberal Arts & Sciences' }
+              ]}
+              value={formData.institution_type || 'Autonomous Engineering College'}
+              onChange={(e) => setFormData(prev => ({ ...prev, institution_type: e.target.value }))}
+            />
             <Input
-              label="Location / City"
+              label="Campus Geographic Location"
               value={formData.location}
               onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+              required
             />
             <Input
-              label="State & Country"
-              value={`${formData.state}, ${formData.country}`}
-              disabled
-              hint="Fixed geographic jurisdiction"
-            />
-            <Input
-              label="Timezone"
-              value={formData.timezone}
-              onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-            <Input
-              label="Student Body"
+              label="Total Enrolled Students"
               type="number"
-              suffix="students"
-              value={formData.studentCount}
+              min="0"
+              value={formData.studentCount || 0}
               onChange={(e) => setFormData(prev => ({ ...prev, studentCount: parseInt(e.target.value) || 0 }))}
             />
             <Input
-              label="Faculty Count"
+              label="Teaching Faculty Count"
               type="number"
-              suffix="faculty"
-              value={formData.facultyCount}
+              min="0"
+              value={formData.facultyCount || 0}
               onChange={(e) => setFormData(prev => ({ ...prev, facultyCount: parseInt(e.target.value) || 0 }))}
             />
             <Input
-              label="Support Staff"
+              label="Administrative & Support Staff"
               type="number"
-              suffix="staff"
-              value={formData.staffCount}
+              min="0"
+              value={formData.staffCount || 0}
               onChange={(e) => setFormData(prev => ({ ...prev, staffCount: parseInt(e.target.value) || 0 }))}
             />
             <Input
-              label="Built-Up Area"
+              label="Campus Area (Acres)"
               type="number"
-              suffix="m²"
-              value={formData.builtUpAreaSqM}
+              min="0"
+              step="0.1"
+              value={formData.campusAreaAcres || 0}
+              onChange={(e) => setFormData(prev => ({ ...prev, campusAreaAcres: parseFloat(e.target.value) || 0 }))}
+            />
+            <Input
+              label="Built-Up Enclosed Floor Area (m²)"
+              type="number"
+              min="0"
+              step="100"
+              value={formData.builtUpAreaSqM || 0}
               onChange={(e) => setFormData(prev => ({ ...prev, builtUpAreaSqM: parseFloat(e.target.value) || 0 }))}
+            />
+            <Input
+              label="Academic Year Baseline"
+              value={formData.academicYear || '2025-2026'}
+              onChange={(e) => setFormData(prev => ({ ...prev, academicYear: e.target.value }))}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Total Campus Population: <strong>{((formData.studentCount || 0) + (formData.facultyCount || 0) + (formData.staffCount || 0)).toLocaleString()} people</strong>
-            </span>
-            <Button variant="primary" size="sm" type="submit" icon={<Save size={14} />}>
-              Save Profile Changes
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <Button variant="primary" type="submit" icon={<Save size={15} />}>
+              Save Campus Profile
             </Button>
           </div>
         </form>
       </Card>
 
-      {/* 2. Reporting Preferences */}
+      {/* 2. Accounting Preferences */}
       <Card
-        title="2. Reporting Preferences & Standards"
-        subtitle="Default units, cycle selection, and baseline references"
+        title="2. Carbon Accounting Units & Standards"
+        subtitle="Global warming potential and unit metrics applied across dashboards"
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginTop: '0.5rem' }}>
           <Select
-            label="Default Reporting Cycle"
-            options={reportingPeriods.map(p => ({ value: p.id, label: p.label }))}
-            value={reportingPeriods.find(p => p.is_default)?.id || 'period-2025'}
-            onChange={() => {}}
-          />
-
-          <Select
-            label="Preferred Display Unit"
+            label="Primary Emission Unit"
             options={[
-              { value: 'tCO2e', label: 'Metric Tonnes (tCO2e)' },
-              { value: 'kgCO2e', label: 'Kilograms (kgCO2e)' }
+              { value: 'tCO2e', label: 'Metric Tonnes CO2 equivalent (tCO2e)' },
+              { value: 'kgCO2e', label: 'Kilograms CO2 equivalent (kgCO2e)' }
             ]}
             value={preferredUnit}
             onChange={(e) => setPreferredUnit(e.target.value)}
           />
 
-          <Input
-            label="Historical Baseline Year"
-            value="CY 2024 (915.0 tCO2e)"
-            disabled
-            hint="Reference year for reduction targets"
+          <Select
+            label="Global Warming Potential (GWP) Standard"
+            options={[
+              { value: 'ar6', label: 'IPCC Sixth Assessment Report (AR6 — 100-Year)' },
+              { value: 'ar5', label: 'IPCC Fifth Assessment Report (AR5 — 100-Year)' }
+            ]}
+            value="ar6"
+            onChange={() => {}}
+          />
+
+          <Select
+            label="Accounting Boundary Method"
+            options={[
+              { value: 'operational', label: 'Operational Control (GHG Protocol)' },
+              { value: 'financial', label: 'Financial Control' },
+              { value: 'equity', label: 'Equity Share' }
+            ]}
+            value="operational"
+            onChange={() => {}}
           />
         </div>
       </Card>
 
-      {/* 3. Emission Factor Configuration Status */}
+      {/* 3. Reference Emission Factors Table */}
       <Card
-        title="3. Configured Emission Factors Catalogue"
-        subtitle="Audit provenance, authority sources, and validation rules"
-        action={
-          backendStatus === 'connected'
-            ? <Badge variant="success"><CheckCircle size={11} style={{ marginRight: '0.25rem' }} />Backend Connected</Badge>
-            : backendStatus === 'offline'
-            ? <Badge variant="danger">Backend Offline</Badge>
-            : <Badge variant="warning">Checking…</Badge>
-        }
+        title="3. Verified Emission Factors Reference Table"
+        subtitle="Regional factors applied to convert activity quantities into carbon equivalents"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '0.5rem' }}>
-          <div className="table-container">
-            <table className="canopy-table">
-              <thead>
-                <tr>
-                  <th>Factor ID</th>
-                  <th>Category</th>
-                  <th>Activity Type</th>
-                  <th>Factor Value</th>
-                  <th>Source Authority</th>
-                  <th>Status</th>
+        <div className="table-container" style={{ marginTop: '0.75rem' }}>
+          <table className="canopy-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Activity Stream</th>
+                <th>Factor Value</th>
+                <th>Units</th>
+                <th>Geographic Region</th>
+                <th>Standard Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mockEmissionFactors.map(ef => (
+                <tr key={ef.id}>
+                  <td>
+                    <Badge variant={ef.category === 'electricity' ? 'success' : ef.category === 'transport' ? 'warning' : 'info'}>
+                      {ef.category}
+                    </Badge>
+                  </td>
+                  <td style={{ fontWeight: 500, textTransform: 'capitalize' }}>
+                    {ef.activity_type.replace(/_/g, ' ')}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-sans)', fontWeight: 600 }}>{ef.factor_value}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{ef.factor_unit}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{ef.geography}</td>
+                  <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{ef.source_name}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {mockEmissionFactors.map(factor => (
-                  <tr key={factor.id}>
-                    <td><code>{factor.id}</code></td>
-                    <td style={{ textTransform: 'capitalize' }}>{factor.category}</td>
-                    <td style={{ fontSize: '0.8rem' }}>{factor.activity_type.replace(/_/g, ' ')}</td>
-                    <td style={{ fontWeight: 600, color: 'var(--sage)' }}>
-                      {factor.factor_value} {factor.factor_unit}
-                    </td>
-                    <td style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                      {factor.source_name}
-                    </td>
-                    <td>
-                      <Badge variant="illustrative">Illustrative</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div
-            style={{
-              padding: '0.75rem 1rem',
-              backgroundColor: 'var(--card-primary)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border)',
-              fontSize: '0.8rem',
-              color: 'var(--text-muted)'
-            }}
-          >
-            <strong>Factor Governance Rule:</strong> Every factor includes explicit provenance, methodology version, and validity timestamps. If an activity type lacks a verified factor, Canopy marks the output <em>Unavailable</em> rather than interpolating ungrounded estimates.
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 
-      {/* 4. Application Architecture & Stage 2 Info */}
+      {/* 4. Session & Storage Management */}
       <Card
-        title="4. Application & API Environment"
-        subtitle="Frontend and backend integration readiness"
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginTop: '0.5rem' }}>
-          <div
-            style={{
-              padding: '1rem',
-              backgroundColor: 'var(--card-primary)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border)',
-              fontSize: '0.82rem'
-            }}
-          >
-            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-              Frontend Environment (Stage 1)
-            </div>
-            <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <div>Version: <code>1.0.0-stage1</code></div>
-              <div>Stack: React 19, TypeScript, Vite, Recharts, Lucide</div>
-              <div>Design: Dark Botanical Editorial ("Forest at Midnight")</div>
-              <div>State: Client memory + LocalStorage</div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '1rem',
-              backgroundColor: 'var(--card-primary)',
-              borderRadius: 'var(--radius-md)',
-              border: backendStatus === 'connected' ? '1px solid rgba(78,135,82,0.4)' : '1px solid var(--border)',
-              fontSize: '0.82rem'
-            }}
-          >
-            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Backend Integration (Stage 3 Active)
-              {backendStatus === 'connected'
-                ? <Badge variant="success">Connected</Badge>
-                : backendStatus === 'offline'
-                ? <Badge variant="danger">Offline</Badge>
-                : <Badge variant="warning">Checking…</Badge>
-              }
-            </div>
-            <div style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <div>API Prefix: <code>/api/v1</code></div>
-              <div>Backend Target: Python FastAPI + SQLAlchemy 2.x</div>
-              <div>Database: SQLite (canopy.db)</div>
-              {backendInfo && (
-                <>
-                  <div>Service: <code>{backendInfo.service}</code></div>
-                  <div>Methodology: <code>{backendInfo.version}</code></div>
-                </>
-              )}
-              <div style={{ marginTop: '0.4rem' }}>
-                <button
-                  onClick={async () => {
-                    setBackendStatus('checking');
-                    try {
-                      const h = await canopyApi.healthCheck();
-                      setBackendStatus('connected');
-                      setBackendInfo({ service: h.service, version: h.methodology_version });
-                    } catch {
-                      setBackendStatus('offline');
-                      setBackendInfo(null);
-                    }
-                  }}
-                  style={{
-                    background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                    color: 'var(--sage)', fontSize: '0.75rem', cursor: 'pointer', padding: '0.2rem 0.6rem',
-                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem'
-                  }}
-                >
-                  <RefreshCw size={11} /> Re-check Connection
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* 5. Session Data Management */}
-      <Card
-        title="5. Browser Session Data Management"
-        subtitle="Manage local browser storage caches and cached records"
+        title="4. Browser Session Data Management"
+        subtitle="Manage local browser drafts and temporary calculations"
       >
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '1rem',
-            backgroundColor: 'rgba(192, 87, 70, 0.08)',
-            border: '1px solid rgba(192, 87, 70, 0.3)',
+            padding: '1.25rem',
+            backgroundColor: 'var(--warm-ivory)',
+            border: '1px solid var(--border)',
             borderRadius: 'var(--radius-md)',
-            marginTop: '0.5rem'
+            marginTop: '0.5rem',
+            gap: '1.5rem',
+            flexWrap: 'wrap'
           }}
         >
           <div>
-            <div style={{ fontWeight: 600, color: '#FFAAA0', fontSize: '0.9rem' }}>
-              Reset Session Storage & Demo Caches
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+              Reset Local Session Drafts
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-              Clears custom scenarios, saved activity records, and recommendation status overrides from localStorage.
+              Clears custom simulator drafts and local session caches without affecting permanent database records.
             </p>
           </div>
           <Button
-            variant="danger"
+            variant="secondary"
             size="sm"
             onClick={handleClearSessionData}
             icon={<Trash2 size={14} />}
           >
-            Clear Session
+            Clear Local Drafts
           </Button>
         </div>
       </Card>

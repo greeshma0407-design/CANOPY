@@ -20,7 +20,7 @@ import { useCalculator } from '../../hooks/useCalculator';
 import { useCampusData } from '../../hooks/useCampusData';
 
 export const CalculatorPage: React.FC = () => {
-  const { campus, selectedPeriod, reportingPeriods, isLiveBackend, refetch } = useCampusData();
+  const { campus, selectedPeriod, reportingPeriods, refetch } = useCampusData();
   const {
     activeTab,
     setActiveTab,
@@ -41,7 +41,7 @@ export const CalculatorPage: React.FC = () => {
     isCalculating,
     isSaving,
     apiWarnings
-  } = useCalculator();
+  } = useCalculator(selectedPeriod?.id);
 
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
@@ -123,13 +123,9 @@ export const CalculatorPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {isLiveBackend ? (
-            <Badge variant="success">Backend Factor Engine</Badge>
-          ) : (
-            <Badge variant="illustrative">Illustrative Factors Applied</Badge>
-          )}
+          <Badge variant="success">Standardized Factors</Badge>
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={resetAll}
             icon={<RotateCcw size={14} />}
@@ -242,7 +238,7 @@ export const CalculatorPage: React.FC = () => {
                     className={`btn ${elecForm.sourceType === 'solar' ? 'btn-primary' : 'btn-secondary'}`}
                     style={{ fontSize: '0.82rem' }}
                   >
-                    On-Site Rooftop Solar (0.00 kg/kWh)
+                    On-Site Rooftop Solar (0.048 kg/kWh)
                   </button>
                 </div>
               </div>

@@ -14,21 +14,24 @@ const DEFAULT_ASSUMPTIONS: ScenarioAssumptions = {
   waste_diversion_rate_pct: 45
 };
 
+// Illustrative placeholder baseline used ONLY when no live backend data is available.
+// These values are NOT displayed as real emissions — the Simulator page shows a warning
+// when isLiveBackend is false. When real campus records exist, liveBaseline overrides this.
 const FALLBACK_BASELINE = {
-  electricity_t_co2e: 454.7,
-  transport_t_co2e: 214.5,
-  waste_t_co2e: 28.1
+  electricity_t_co2e: 0,
+  transport_t_co2e: 0,
+  waste_t_co2e: 0,
 };
 
 export function useSimulator() {
-  const { categoryBreakdowns, totalEmissions_t_co2e, isLiveBackend } = useCampusData();
+  const { campus, categoryBreakdowns, totalEmissions_t_co2e, isLiveBackend } = useCampusData();
 
-  // Build live baseline from backend data when available
+  // Build live baseline from backend data when available; fall back to zero (not fabricated)
   const liveBaseline = useMemo(() => {
     if (!isLiveBackend || categoryBreakdowns.length === 0) return FALLBACK_BASELINE;
-    const elec = categoryBreakdowns.find(c => c.category === 'electricity')?.emissions_t_co2e ?? FALLBACK_BASELINE.electricity_t_co2e;
-    const trans = categoryBreakdowns.find(c => c.category === 'transport')?.emissions_t_co2e ?? FALLBACK_BASELINE.transport_t_co2e;
-    const waste = categoryBreakdowns.find(c => c.category === 'waste')?.emissions_t_co2e ?? FALLBACK_BASELINE.waste_t_co2e;
+    const elec = categoryBreakdowns.find(c => c.category === 'electricity')?.emissions_t_co2e ?? 0;
+    const trans = categoryBreakdowns.find(c => c.category === 'transport')?.emissions_t_co2e ?? 0;
+    const waste = categoryBreakdowns.find(c => c.category === 'waste')?.emissions_t_co2e ?? 0;
     return { electricity_t_co2e: elec, transport_t_co2e: trans, waste_t_co2e: waste };
   }, [categoryBreakdowns, isLiveBackend]);
 
@@ -69,7 +72,7 @@ export function useSimulator() {
 
     const newScenario: Scenario = {
       id: `scen-custom-${Date.now()}`,
-      campus_id: 'campus-mlrit-01',
+      campus_id: campus?.id || '',
       name: name.trim(),
       description: description.trim() || 'Custom modelled campus decarbonization scenario.',
       created_at: new Date().toISOString().slice(0, 10),
@@ -116,7 +119,7 @@ export function useSimulator() {
         ];
 
         await canopyApi.createScenario({
-          campus_id: 'campus-mlrit-01',
+          campus_id: campus?.id || '',
           name: name.trim(),
           description: description.trim() || 'Custom modelled campus decarbonization scenario.',
           items,

@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts';
+import { BarChart3 } from 'lucide-react';
 import { MonthlyEmissions } from '../../types';
 
 interface CategoryBarChartProps {
@@ -23,16 +24,16 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div
         style={{
-          backgroundColor: '#1B211C',
-          border: '1px solid #303A30',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E6E1D6',
           borderRadius: '8px',
           padding: '0.75rem 1rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          boxShadow: '0 4px 14px rgba(43, 45, 66, 0.08)',
           fontSize: '0.82rem'
         }}
       >
-        <div style={{ fontWeight: 600, color: '#F2EFE5', marginBottom: '0.4rem' }}>
-          {label} 2025
+        <div style={{ fontWeight: 600, color: '#2B2D42', marginBottom: '0.4rem' }}>
+          {label}
         </div>
         {payload.map((entry: any, index: number) => (
           <div
@@ -42,7 +43,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '1.25rem',
-              color: '#A7ADA1',
+              color: '#555A64',
               margin: '0.2rem 0'
             }}
           >
@@ -57,7 +58,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               />
               {entry.name}:
             </span>
-            <span style={{ fontWeight: 600, color: '#F2EFE5' }}>
+            <span style={{ fontWeight: 600, color: '#2B2D42' }}>
               {entry.value} t
             </span>
           </div>
@@ -66,11 +67,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           style={{
             marginTop: '0.4rem',
             paddingTop: '0.4rem',
-            borderTop: '1px solid #303A30',
+            borderTop: '1px solid #E6E1D6',
             display: 'flex',
             justifyContent: 'space-between',
             fontWeight: 600,
-            color: '#F2EFE5'
+            color: '#2B2D42'
           }}
         >
           <span>Total:</span>
@@ -87,21 +88,66 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
   height = 320,
   stacked = true
 }) => {
+  const hasData = data && data.length > 0 && data.some(d => (d.total_t_co2e || 0) > 0);
+
+  if (!hasData) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '2rem',
+          backgroundColor: 'var(--warm-ivory)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px dashed var(--border)'
+        }}
+      >
+        <div
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--white)',
+            color: 'var(--forest-green)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem',
+            border: '1px solid var(--border)'
+          }}
+        >
+          <BarChart3 size={20} />
+        </div>
+        <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.15rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+          No emissions breakdown recorded
+        </div>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '320px', lineHeight: 1.5 }}>
+          Activity data will populate this monthly breakdown as records are created.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#232B24" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#EFECE4" />
           <XAxis
             dataKey="month_short"
-            stroke="#737A6E"
-            tick={{ fill: '#A7ADA1', fontSize: 12 }}
-            tickLine={{ stroke: '#303A30' }}
+            stroke="#7E8490"
+            tick={{ fill: '#555A64', fontSize: 12 }}
+            tickLine={{ stroke: '#E6E1D6' }}
           />
           <YAxis
-            stroke="#737A6E"
-            tick={{ fill: '#A7ADA1', fontSize: 12 }}
-            tickLine={{ stroke: '#303A30' }}
+            stroke="#7E8490"
+            tick={{ fill: '#555A64', fontSize: 12 }}
+            tickLine={{ stroke: '#E6E1D6' }}
             unit=" t"
           />
           <Tooltip content={<CustomTooltip />} />
@@ -109,27 +155,27 @@ export const CategoryBarChart: React.FC<CategoryBarChartProps> = ({
             verticalAlign="bottom"
             height={36}
             wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }}
-            formatter={(value) => <span style={{ color: '#A7ADA1' }}>{value}</span>}
+            formatter={(value) => <span style={{ color: '#555A64' }}>{value}</span>}
           />
           <Bar
             dataKey="electricity_t_co2e"
             name="Electricity"
             stackId={stacked ? 'a' : undefined}
-            fill="#A5B58B" // sage
+            fill="#365A40" // forest green
             radius={stacked ? [0, 0, 0, 0] : [4, 4, 0, 0]}
           />
           <Bar
             dataKey="transport_t_co2e"
             name="Transport"
             stackId={stacked ? 'a' : undefined}
-            fill="#D4A373" // ochre
+            fill="#D4A373" // earth ochre
             radius={stacked ? [0, 0, 0, 0] : [4, 4, 0, 0]}
           />
           <Bar
             dataKey="waste_t_co2e"
             name="Waste"
             stackId={stacked ? 'a' : undefined}
-            fill="#6B705C" // olive
+            fill="#6B705C" // sage
             radius={stacked ? [4, 4, 0, 0] : [4, 4, 0, 0]}
           />
         </BarChart>

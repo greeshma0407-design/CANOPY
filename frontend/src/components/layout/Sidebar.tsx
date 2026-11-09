@@ -12,7 +12,7 @@ import {
   X,
   MapPin
 } from 'lucide-react';
-import { CanopyLogo, CampusTreeIllustration } from '../../assets/BotanicalIcons';
+import { CanopyLogo } from '../../assets/BotanicalIcons';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 
@@ -31,12 +31,12 @@ interface NavItem {
 
 const allNavItems: NavItem[] = [
   { path: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { path: '/calculator', label: 'Carbon Calculator', icon: Calculator, roles: ['ADMIN', 'CAMPUS_MANAGER', 'DATA_ENTRY_OPERATOR'] },
-  { path: '/simulator', label: 'What-If Simulator', icon: Sliders, roles: ['ADMIN', 'CAMPUS_MANAGER'] },
+  { path: '/calculator', label: 'Carbon Calculator', icon: Calculator, roles: ['ADMIN', 'CAMPUS_ADMIN', 'CAMPUS_MANAGER', 'DATA_ENTRY_OPERATOR'] },
+  { path: '/simulator', label: 'What-If Simulator', icon: Sliders, roles: ['ADMIN', 'CAMPUS_ADMIN', 'CAMPUS_MANAGER'] },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/recommendations', label: 'Recommendations', icon: Lightbulb, roles: ['ADMIN', 'CAMPUS_MANAGER', 'VIEWER'] },
-  { path: '/reports', label: 'Reports', icon: FileText, roles: ['ADMIN', 'CAMPUS_MANAGER', 'VIEWER'] },
-  { path: '/users', label: 'User Management', icon: Users, roles: ['ADMIN'] },
+  { path: '/recommendations', label: 'Recommendations', icon: Lightbulb, roles: ['ADMIN', 'CAMPUS_ADMIN', 'CAMPUS_MANAGER', 'VIEWER'] },
+  { path: '/reports', label: 'Reports', icon: FileText, roles: ['ADMIN', 'CAMPUS_ADMIN', 'CAMPUS_MANAGER', 'VIEWER'] },
+  { path: '/users', label: 'User Management', icon: Users, roles: ['ADMIN', 'CAMPUS_ADMIN'] },
   { path: '/settings', label: 'Settings', icon: Settings }
 ];
 
@@ -57,7 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)',
+            backgroundColor: 'rgba(43, 45, 66, 0.5)',
+            backdropFilter: 'blur(3px)',
             zIndex: 998
           }}
           aria-hidden="true"
@@ -69,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
           width: '260px',
           minWidth: '260px',
           flexShrink: 0,
-          backgroundColor: 'var(--bg-sidebar)',
+          backgroundColor: 'var(--white)',
           borderRight: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
@@ -98,10 +99,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
               <span
                 style={{
                   fontFamily: 'var(--font-editorial)',
-                  fontSize: '1.5rem',
-                  fontWeight: 700,
+                  fontSize: '1.55rem',
+                  fontWeight: 400,
                   letterSpacing: '-0.02em',
-                  color: 'var(--text-primary)'
+                  color: 'var(--forest-green)'
                 }}
               >
                 Canopy
@@ -111,8 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
               style={{
                 fontSize: '0.78rem',
                 color: 'var(--sage)',
-                fontStyle: 'italic',
-                marginTop: '0.35rem',
+                marginTop: '0.3rem',
                 letterSpacing: '0.01em'
               }}
             >
@@ -163,14 +163,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
               <span
                 style={{
                   fontSize: '0.65rem',
-                  padding: '0.1rem 0.4rem',
+                  padding: '0.15rem 0.45rem',
                   borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--card-elevated)',
-                  color: 'var(--sage)',
+                  backgroundColor: 'var(--forest-green-subtle)',
+                  color: 'var(--forest-green)',
                   fontWeight: 600
                 }}
               >
-                {role}
+                {role.replace('CAMPUS_', '')}
               </span>
             )}
           </div>
@@ -188,9 +188,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
                       gap: '0.75rem',
                       padding: '0.65rem 0.85rem',
                       borderRadius: 'var(--radius-md)',
-                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      backgroundColor: isActive ? 'var(--card-elevated)' : 'transparent',
-                      borderLeft: isActive ? '3px solid var(--sage)' : '3px solid transparent',
+                      color: isActive ? 'var(--forest-green)' : 'var(--text-secondary)',
+                      backgroundColor: isActive ? 'var(--forest-green-subtle)' : 'transparent',
+                      borderLeft: isActive ? '3px solid var(--forest-green)' : '3px solid transparent',
                       fontWeight: isActive ? 600 : 400,
                       textDecoration: 'none',
                       fontSize: '0.88rem',
@@ -206,34 +206,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
           </ul>
         </nav>
 
-        {/* Bottom Campus Illustration & Status Indicator */}
+        {/* Bottom Campus Summary */}
         <div
           style={{
             padding: '1rem 1.25rem',
             borderTop: '1px solid var(--border)',
-            backgroundColor: 'rgba(16, 20, 16, 0.4)'
+            backgroundColor: 'var(--card-elevated)'
           }}
         >
-          <CampusTreeIllustration />
-
           <div
             style={{
-              marginTop: '0.85rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '0.6rem 0.75rem',
+              padding: '0.65rem 0.85rem',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--card-primary)',
+              backgroundColor: 'var(--white)',
               border: '1px solid var(--border)'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-              <MapPin size={14} color="var(--sage)" style={{ flexShrink: 0 }} />
+              <MapPin size={15} color="var(--forest-green)" style={{ flexShrink: 0 }} />
               <div style={{ minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: '0.78rem',
+                    fontSize: '0.8rem',
                     fontWeight: 600,
                     color: 'var(--text-primary)',
                     whiteSpace: 'nowrap',
@@ -241,23 +238,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile, cam
                     textOverflow: 'ellipsis'
                   }}
                 >
-                  {campusName || 'MLRIT Hyderabad'}
+                  {campusName || 'Canopy Campus'}
                 </div>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                  {user ? user.email : 'Campus Pop. 3,400'}
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  {user?.email || 'Logged In'}
                 </div>
               </div>
             </div>
-            <div
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--color-success)',
-                boxShadow: '0 0 6px rgba(78, 135, 82, 0.7)'
-              }}
-              title="Campus Node Active"
-            />
           </div>
         </div>
       </aside>

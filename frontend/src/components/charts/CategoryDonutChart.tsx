@@ -7,6 +7,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts';
+import { PieChart as PieIcon } from 'lucide-react';
 import { CategoryBreakdown } from '../../types';
 
 interface CategoryDonutChartProps {
@@ -15,27 +16,28 @@ interface CategoryDonutChartProps {
   height?: number;
 }
 
+// Clean nature-inspired tooltip
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const item = payload[0].payload as CategoryBreakdown;
     return (
       <div
         style={{
-          backgroundColor: '#1B211C',
-          border: '1px solid #303A30',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E6E1D6',
           borderRadius: '8px',
-          padding: '0.65rem 0.85rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          padding: '0.65rem 0.9rem',
+          boxShadow: '0 4px 14px rgba(43, 45, 66, 0.08)',
           fontSize: '0.82rem'
         }}
       >
         <div style={{ fontWeight: 600, color: item.color, marginBottom: '0.2rem' }}>
           {item.label}
         </div>
-        <div style={{ color: '#F2EFE5', fontWeight: 600 }}>
-          {item.emissions_t_co2e} tCO2e ({item.percentage}%)
+        <div style={{ color: '#2B2D42', fontWeight: 600 }}>
+          {item.emissions_t_co2e.toLocaleString()} tCO2e ({item.percentage}%)
         </div>
-        <div style={{ fontSize: '0.75rem', color: '#A7ADA1', marginTop: '0.2rem' }}>
+        <div style={{ fontSize: '0.75rem', color: '#555A64', marginTop: '0.2rem' }}>
           Trend: {item.trend_direction === 'down' ? '↓' : '↑'} {Math.abs(item.trend_pct)}% vs baseline
         </div>
       </div>
@@ -46,9 +48,54 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export const CategoryDonutChart: React.FC<CategoryDonutChartProps> = ({
   data,
-  totalEmissions = 842,
-  height = 280
+  totalEmissions = 0,
+  height = 300
 }) => {
+  const hasData = totalEmissions > 0 && data.some(d => d.emissions_t_co2e > 0);
+
+  if (!hasData) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '1.5rem',
+          backgroundColor: 'var(--warm-ivory)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px dashed var(--border)'
+        }}
+      >
+        <div
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--white)',
+            color: 'var(--sage)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem',
+            border: '1px solid var(--border)'
+          }}
+        >
+          <PieIcon size={20} />
+        </div>
+        <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+          No category emissions yet
+        </div>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: '280px', lineHeight: 1.5 }}>
+          Activity data entered in the Calculator will automatically appear in this category breakdown.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height, position: 'relative', minWidth: 0 }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -62,7 +109,7 @@ export const CategoryDonutChart: React.FC<CategoryDonutChartProps> = ({
             innerRadius="62%"
             outerRadius="82%"
             paddingAngle={3}
-            stroke="#101410"
+            stroke="#FFFFFF"
             strokeWidth={2}
           >
             {data.map((entry, index) => (
@@ -72,11 +119,11 @@ export const CategoryDonutChart: React.FC<CategoryDonutChartProps> = ({
           <Tooltip content={<CustomTooltip />} />
           <Legend
             verticalAlign="bottom"
-            height={40}
+            height={44}
             formatter={(value, entry: any) => {
               const breakdown = data.find(d => d.label === value);
               return (
-                <span style={{ color: '#A7ADA1', fontSize: '0.78rem', marginRight: '8px' }}>
+                <span style={{ color: '#555A64', fontSize: '0.8rem', marginRight: '8px' }}>
                   {value} <strong style={{ color: entry.color }}>({breakdown?.percentage}%)</strong>
                 </span>
               );
@@ -99,15 +146,15 @@ export const CategoryDonutChart: React.FC<CategoryDonutChartProps> = ({
         <span
           style={{
             fontFamily: 'var(--font-editorial)',
-            fontSize: '1.75rem',
-            fontWeight: 700,
-            color: 'var(--text-primary)',
+            fontSize: '1.85rem',
+            fontWeight: 400,
+            color: 'var(--charcoal)',
             lineHeight: 1
           }}
         >
           {totalEmissions}
         </span>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.15rem' }}>
           tCO2e Total
         </div>
       </div>

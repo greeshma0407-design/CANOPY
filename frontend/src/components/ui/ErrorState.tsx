@@ -1,17 +1,19 @@
 import React from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from './Button';
 
 interface ErrorStateProps {
   title?: string;
-  description: string;
+  description?: string;
   onRetry?: () => void;
+  style?: React.CSSProperties;
 }
 
 export const ErrorState: React.FC<ErrorStateProps> = ({
-  title = 'Calculation Unavailable',
-  description,
-  onRetry
+  title = 'Information Unavailable',
+  description = "We couldn't load your campus information right now. Please try again.",
+  onRetry,
+  style
 }) => {
   return (
     <div
@@ -22,9 +24,10 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        border: '1px solid rgba(192, 87, 70, 0.4)',
+        border: '1px solid rgba(181, 74, 59, 0.2)',
         borderRadius: 'var(--radius-lg)',
-        backgroundColor: 'rgba(192, 87, 70, 0.08)'
+        backgroundColor: 'rgba(181, 74, 59, 0.04)',
+        ...style
       }}
     >
       <div
@@ -32,20 +35,20 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
           width: '48px',
           height: '48px',
           borderRadius: '50%',
-          backgroundColor: 'rgba(192, 87, 70, 0.2)',
-          color: '#FFAAA0',
+          backgroundColor: 'rgba(181, 74, 59, 0.1)',
+          color: 'var(--color-danger)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: '0.85rem'
         }}
       >
-        <AlertTriangle size={24} />
+        <AlertCircle size={24} />
       </div>
-      <h3 style={{ fontSize: '1.1rem', color: '#FFAAA0', marginBottom: '0.35rem' }}>
+      <h3 style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '0.35rem', fontWeight: 400 }}>
         {title}
       </h3>
-      <p style={{ maxWidth: '440px', fontSize: '0.86rem', color: 'var(--text-secondary)', marginBottom: onRetry ? '1.25rem' : 0 }}>
+      <p style={{ maxWidth: '440px', fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: onRetry ? '1.25rem' : 0 }}>
         {description}
       </p>
       {onRetry && (

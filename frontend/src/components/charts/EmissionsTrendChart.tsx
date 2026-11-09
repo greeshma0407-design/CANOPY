@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend
 } from 'recharts';
+import { TrendingUp } from 'lucide-react';
 import { MonthlyEmissions } from '../../types';
 
 interface EmissionsTrendChartProps {
@@ -17,21 +18,21 @@ interface EmissionsTrendChartProps {
   showTotalLine?: boolean;
 }
 
-// Custom dark botanical tooltip
+// Clean nature-inspired tooltip
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div
         style={{
-          backgroundColor: '#1B211C',
-          border: '1px solid #303A30',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E6E1D6',
           borderRadius: '8px',
           padding: '0.75rem 1rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+          boxShadow: '0 4px 14px rgba(43, 45, 66, 0.08)'
         }}
       >
-        <div style={{ fontWeight: 600, color: '#F2EFE5', marginBottom: '0.4rem', fontSize: '0.88rem' }}>
-          {label} 2025
+        <div style={{ fontWeight: 600, color: '#2B2D42', marginBottom: '0.4rem', fontSize: '0.88rem' }}>
+          {label}
         </div>
         {payload.map((entry: any, index: number) => (
           <div
@@ -41,9 +42,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '1.25rem',
-              fontSize: '0.8rem',
-              color: '#A7ADA1',
-              margin: '0.2rem 0'
+              fontSize: '0.82rem',
+              color: '#555A64',
+              margin: '0.25rem 0'
             }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -57,7 +58,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               />
               {entry.name}:
             </span>
-            <span style={{ fontWeight: 600, color: '#F2EFE5' }}>
+            <span style={{ fontWeight: 600, color: '#2B2D42' }}>
               {entry.value} tCO2e
             </span>
           </div>
@@ -73,21 +74,66 @@ export const EmissionsTrendChart: React.FC<EmissionsTrendChartProps> = ({
   height = 320,
   showTotalLine = true
 }) => {
+  const hasData = data && data.length > 0 && data.some(d => (d.total_t_co2e || 0) > 0);
+
+  if (!hasData) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '2rem',
+          backgroundColor: 'var(--warm-ivory)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px dashed var(--border)'
+        }}
+      >
+        <div
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--white)',
+            color: 'var(--forest-green)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '0.75rem',
+            border: '1px solid var(--border)'
+          }}
+        >
+          <TrendingUp size={22} />
+        </div>
+        <div style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.15rem', color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+          No monthly trend data available
+        </div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '360px', lineHeight: 1.5 }}>
+          As you log utility invoices and activity records for your campus, monthly trend lines will automatically appear here.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height, minWidth: 0 }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#232B24" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#EFECE4" />
           <XAxis
             dataKey="month_short"
-            stroke="#737A6E"
-            tick={{ fill: '#A7ADA1', fontSize: 12 }}
-            tickLine={{ stroke: '#303A30' }}
+            stroke="#7E8490"
+            tick={{ fill: '#555A64', fontSize: 12 }}
+            tickLine={{ stroke: '#E6E1D6' }}
           />
           <YAxis
-            stroke="#737A6E"
-            tick={{ fill: '#A7ADA1', fontSize: 12 }}
-            tickLine={{ stroke: '#303A30' }}
+            stroke="#7E8490"
+            tick={{ fill: '#555A64', fontSize: 12 }}
+            tickLine={{ stroke: '#E6E1D6' }}
             unit=" t"
           />
           <Tooltip content={<CustomTooltip />} />
@@ -95,16 +141,16 @@ export const EmissionsTrendChart: React.FC<EmissionsTrendChartProps> = ({
             verticalAlign="bottom"
             height={36}
             wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }}
-            formatter={(value) => <span style={{ color: '#A7ADA1' }}>{value}</span>}
+            formatter={(value) => <span style={{ color: '#555A64', fontSize: '0.82rem' }}>{value}</span>}
           />
           {showTotalLine && (
             <Line
               type="monotone"
               dataKey="total_t_co2e"
               name="Total Campus"
-              stroke="#F2EFE5"
+              stroke="#2B2D42"
               strokeWidth={2.5}
-              dot={{ r: 3, fill: '#F2EFE5' }}
+              dot={{ r: 3, fill: '#2B2D42' }}
               activeDot={{ r: 6 }}
             />
           )}
@@ -112,15 +158,15 @@ export const EmissionsTrendChart: React.FC<EmissionsTrendChartProps> = ({
             type="monotone"
             dataKey="electricity_t_co2e"
             name="Electricity"
-            stroke="#A5B58B" // sage
+            stroke="#365A40" // forest green
             strokeWidth={2}
-            dot={{ r: 2, fill: '#A5B58B' }}
+            dot={{ r: 2, fill: '#365A40' }}
           />
           <Line
             type="monotone"
             dataKey="transport_t_co2e"
             name="Transport"
-            stroke="#D4A373" // ochre
+            stroke="#D4A373" // earth ochre
             strokeWidth={2}
             dot={{ r: 2, fill: '#D4A373' }}
           />
@@ -128,7 +174,7 @@ export const EmissionsTrendChart: React.FC<EmissionsTrendChartProps> = ({
             type="monotone"
             dataKey="waste_t_co2e"
             name="Waste"
-            stroke="#6B705C" // olive
+            stroke="#6B705C" // sage
             strokeWidth={2}
             dot={{ r: 2, fill: '#6B705C' }}
           />

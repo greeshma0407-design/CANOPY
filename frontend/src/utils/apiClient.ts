@@ -318,8 +318,8 @@ export const canopyApi = {
 
   // Analytics
   async getSummary(
-    campusId: string = 'campus-mlrit-01',
-    periodId: string = 'period-cy2025-01',
+    campusId: string,
+    periodId: string,
     geography: string = 'IN-Telangana'
   ): Promise<AnalyticsSummaryResponse> {
     const params = new URLSearchParams({
@@ -331,7 +331,7 @@ export const canopyApi = {
   },
 
   async getTrends(
-    campusId: string = 'campus-mlrit-01',
+    campusId: string,
     geography: string = 'IN-Telangana'
   ): Promise<AnalyticsTrendEntry[]> {
     const params = new URLSearchParams({

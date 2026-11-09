@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Campus, ReportingPeriod, MonthlyEmissions, CategoryBreakdown } from '../types';
 import { mockCampus, mockReportingPeriods } from '../data/campus';
-import { mockMonthlyEmissions, mockCategoryBreakdowns } from '../data/activityRecords';
 import { useLocalStorage } from './useLocalStorage';
 import { canopyApi, ActivityRecordRead } from '../utils/apiClient';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +22,7 @@ export function useCampusData() {
   const [reportingPeriods, setReportingPeriods] = useLocalStorage<ReportingPeriod[]>('canopy_reporting_periods', mockReportingPeriods);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(() => {
     const defaultPeriod = reportingPeriods.find(p => p.is_default);
-    return defaultPeriod ? defaultPeriod.id : reportingPeriods[0]?.id || 'period-cy2025-01';
+    return defaultPeriod ? defaultPeriod.id : (reportingPeriods[0]?.id || 'period-cy2025-01');
   });
 
   const selectedPeriod = reportingPeriods.find(p => p.id === selectedPeriodId) || reportingPeriods[0] || {
@@ -90,6 +89,8 @@ export function useCampusData() {
           completeness_pct: 100,
         }));
         setReportingPeriods(formattedPeriods);
+
+        // Dynamically bind to the first valid reporting period if current is missing or stale
         if (!formattedPeriods.some(p => p.id === selectedPeriodId)) {
           setSelectedPeriodId(formattedPeriods[0].id);
         }
@@ -114,7 +115,7 @@ export function useCampusData() {
     setError(null);
 
     try {
-      // 1. Fetch summary from live backend (authoritative emission totals from DB factors)
+      // 1. Fetch summary from backend
       const summary = await canopyApi.getSummary(activeCampusId, activePeriodId, 'IN-Telangana');
       setIsLiveBackend(true);
 
@@ -136,56 +137,53 @@ export function useCampusData() {
       const transPct = sumT > 0 ? Math.round((transT / sumT) * 100) : 0;
       const wastePct = sumT > 0 ? Math.max(0, 100 - elecPct - transPct) : 0;
 
-      setCategoryBreakdowns([
-        {
-          category: 'electricity',
-          label: 'Electricity (Scope 2)',
-          emissions_t_co2e: elecT,
-          percentage: elecPct,
-          color: '#A5B58B',
-          trend_pct: -5.0,
-          trend_direction: 'down',
-        },
-        {
-          category: 'transport',
-          label: 'Transportation (Scope 3)',
-          emissions_t_co2e: transT,
-          percentage: transPct,
-          color: '#D4A373',
-          trend_pct: 2.0,
-          trend_direction: 'up',
-        },
-        {
-          category: 'waste',
-          label: 'Waste & Landfill (Scope 3)',
-          emissions_t_co2e: wasteT,
-          percentage: wastePct,
-          color: '#6B705C',
-          trend_pct: -1.0,
-          trend_direction: 'down',
-        },
-      ]);
+      if (sumT > 0) {
+        setCategoryBreakdowns([
+          {
+            category: 'electricity',
+            label: 'Electricity (Scope 2)',
+            emissions_t_co2e: elecT,
+            percentage: elecPct,
+            color: '#365A40', // forest green
+            trend_pct: -5.0,
+            trend_direction: 'down',
+          },
+          {
+            category: 'transport',
+            label: 'Transportation (Scope 3)',
+            emissions_t_co2e: transT,
+            percentage: transPct,
+            color: '#D4A373', // earth ochre
+            trend_pct: 2.0,
+            trend_direction: 'up',
+          },
+          {
+            category: 'waste',
+            label: 'Waste & Landfill (Scope 3)',
+            emissions_t_co2e: wasteT,
+            percentage: wastePct,
+            color: '#6B705C', // sage
+            trend_pct: -1.0,
+            trend_direction: 'down',
+          },
+        ]);
+      } else {
+        setCategoryBreakdowns([]);
+      }
 
-      // 2. Build month-by-month trends from activity records.
-      // FIX: We NO LONGER recalculate emissions client-side with hardcoded factors.
-      // Instead we use the backend's category totals and distribute them proportionally
-      // across months based on activity quantity recorded per month. This keeps
-      // the dashboard consistent with the Calculator (both use backend DB factors).
+      // 2. Build month-by-month trends from activity records
       try {
         const records: ActivityRecordRead[] = await canopyApi.getRecords(activeCampusId, activePeriodId);
 
-        // Group records by month (derived from notes field for demo data,
-        // or from created_at for user-entered records)
-        const monthsData: MonthlyEmissions[] = MONTH_NAMES.map((mName, i) => {
-          const mNum = i + 1;
-          const monthCode = `2025-${mNum.toString().padStart(2, '0')}`;
+        if (records && records.length > 0 && sumT > 0) {
+          const monthsData = MONTH_NAMES.map((mName, i) => {
+            const mNum = i + 1;
+            const monthCode = `2025-${mNum.toString().padStart(2, '0')}`;
 
-          let mElecKwh = 0;
-          let mTransPkm = 0;
-          let mWasteT = 0;
+            let mElecKwh = 0;
+            let mTransPkm = 0;
+            let mWasteT = 0;
 
-          // Identify which records belong to this month
-          if (records && records.length > 0) {
             for (const r of records) {
               const notes = r.notes || '';
               const matchesMonth =
@@ -205,67 +203,55 @@ export function useCampusData() {
                 }
               }
             }
-          }
 
-          // Compute total activity quantities for proportional allocation
-          return {
-            _elecKwh: mElecKwh,
-            _transPkm: mTransPkm,
-            _wasteT: mWasteT,
-            month: monthCode,
-            month_short: MONTH_SHORTS[i],
-            month_name: mName,
-          };
-        }) as any[];
+            return {
+              _elecKwh: mElecKwh,
+              _transPkm: mTransPkm,
+              _wasteT: mWasteT,
+              month: monthCode,
+              month_short: MONTH_SHORTS[i],
+              month_name: mName,
+            };
+          });
 
-        // Compute totals across all months for proportional scaling
-        const totalElecKwh  = monthsData.reduce((s: number, m: any) => s + m._elecKwh, 0);
-        const totalTransPkm = monthsData.reduce((s: number, m: any) => s + m._transPkm, 0);
-        const totalWasteT   = monthsData.reduce((s: number, m: any) => s + m._wasteT, 0);
+          const totalElecKwh  = monthsData.reduce((s, m) => s + m._elecKwh, 0);
+          const totalTransPkm = monthsData.reduce((s, m) => s + m._transPkm, 0);
+          const totalWasteT   = monthsData.reduce((s, m) => s + m._wasteT, 0);
 
-        // Scale back-calculate per-month emissions from authoritative backend totals.
-        // This avoids hardcoded factors while still showing meaningful monthly trends.
-        const finalMonths: MonthlyEmissions[] = monthsData.map((m: any) => {
-          const mElec  = totalElecKwh  > 0 ? (m._elecKwh  / totalElecKwh)  * elecT  : 0;
-          const mTrans = totalTransPkm > 0 ? (m._transPkm / totalTransPkm) * transT : 0;
-          const mWaste = totalWasteT   > 0 ? (m._wasteT   / totalWasteT)   * wasteT : 0;
+          const finalMonths: MonthlyEmissions[] = monthsData.map((m) => {
+            const mElec  = totalElecKwh  > 0 ? (m._elecKwh  / totalElecKwh)  * elecT  : 0;
+            const mTrans = totalTransPkm > 0 ? (m._transPkm / totalTransPkm) * transT : 0;
+            const mWaste = totalWasteT   > 0 ? (m._wasteT   / totalWasteT)   * wasteT : 0;
 
-          const mTotal = Math.round((mElec + mTrans + mWaste) * 10) / 10;
-          return {
-            month: m.month,
-            month_short: m.month_short,
-            month_name: m.month_name,
-            electricity_t_co2e: Math.round(mElec * 10) / 10,
-            transport_t_co2e: Math.round(mTrans * 10) / 10,
-            waste_t_co2e: Math.round(mWaste * 10) / 10,
-            total_t_co2e: mTotal,
-            is_complete: mTotal > 0,
-          };
-        });
+            const mTotal = Math.round((mElec + mTrans + mWaste) * 10) / 10;
+            return {
+              month: m.month,
+              month_short: m.month_short,
+              month_name: m.month_name,
+              electricity_t_co2e: Math.round(mElec * 10) / 10,
+              transport_t_co2e: Math.round(mTrans * 10) / 10,
+              waste_t_co2e: Math.round(mWaste * 10) / 10,
+              total_t_co2e: mTotal,
+              is_complete: mTotal > 0,
+            };
+          });
 
-        setMonthlyEmissions(finalMonths);
+          setMonthlyEmissions(finalMonths);
+        } else {
+          setMonthlyEmissions([]);
+        }
       } catch (recErr) {
-        console.warn('[CANOPY API] Failed to fetch monthly record breakdown:', recErr);
-        // Don't fail the whole fetch — just leave monthly chart empty
         setMonthlyEmissions([]);
       }
     } catch (err: unknown) {
-      console.warn('[CANOPY API] Live fetch error, using fallback:', err);
       setIsLiveBackend(false);
-      setError((err as { message?: string })?.message || 'Backend unreachable; using offline cache');
-
-      // Only use MLRIT mock data if active campus is the demo MLRIT campus
-      if (activeCampusId === 'campus-mlrit-01') {
-        setTotalEmissions(842.0);
-        setCategoryBreakdowns(mockCategoryBreakdowns);
-        setMonthlyEmissions(mockMonthlyEmissions);
-        setCompletenessStatus('complete');
-      } else {
-        setTotalEmissions(0);
-        setCategoryBreakdowns([]);
-        setMonthlyEmissions([]);
-        setCompletenessStatus('no_data');
-      }
+      // Friendly, non-technical error message without raw status codes or stack traces
+      setError("We couldn't load your campus information right now. Please try again.");
+      // Honest empty state — do not fabricate mock values
+      setTotalEmissions(0);
+      setCategoryBreakdowns([]);
+      setMonthlyEmissions([]);
+      setCompletenessStatus('no_data');
     } finally {
       setIsLoading(false);
     }

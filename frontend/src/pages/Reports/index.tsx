@@ -16,8 +16,8 @@ import { useCampusData } from '../../hooks/useCampusData';
 import { canopyApi, ReportRead } from '../../utils/apiClient';
 import { exportToCSV } from '../../utils/csvExport';
 
-const CAMPUS_ID = 'campus-mlrit-01';
-const PERIOD_ID = 'period-cy2025-01';
+const CAMPUS_ID = 'campus-mlrit-01'; // fallback only — overridden at runtime by campus.id
+const PERIOD_ID = 'period-cy2025-01'; // fallback only — overridden at runtime by selectedPeriod.id
 
 export const ReportsPage: React.FC = () => {
   const {
@@ -52,9 +52,9 @@ export const ReportsPage: React.FC = () => {
     if (isLiveBackend) {
       try {
         const created = await canopyApi.createReport({
-          campus_id: CAMPUS_ID,
-          reporting_period_id: PERIOD_ID,
-          title: `MLRIT Campus GHG Inventory — ${selectedPeriod.label}`,
+          campus_id: campus?.id || CAMPUS_ID,
+          reporting_period_id: selectedPeriod?.id || PERIOD_ID,
+          title: `${campus?.name || 'Campus'} GHG Inventory — ${selectedPeriod.label}`,
           format: 'json'
         });
         setReports(prev => [created, ...prev]);
@@ -135,10 +135,6 @@ export const ReportsPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {isLiveBackend
-            ? <Badge variant="success">Live Backend Data</Badge>
-            : <Badge variant="illustrative">Illustrative Report Template</Badge>
-          }
           <Button variant="secondary" size="sm" onClick={handlePrint} icon={<Printer size={14} />}>Print / PDF</Button>
           <Button variant="secondary" size="sm" onClick={handleExportCSV} icon={<Download size={14} />}>Export CSV</Button>
           <Button variant="primary" size="sm" loading={isGenerating} onClick={handleGenerateReport} icon={<Sparkles size={14} />}>
@@ -150,10 +146,10 @@ export const ReportsPage: React.FC = () => {
       {generatedSuccess && (
         <div style={{
           padding: '0.85rem 1.25rem', backgroundColor: 'rgba(78,135,82,0.18)', border: '1px solid rgba(78,135,82,0.4)',
-          borderRadius: 'var(--radius-md)', color: '#8FD895', display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.9rem'
+          borderRadius: 'var(--radius-md)', color: '#365A40', display: 'flex', alignItems: 'center', gap: '0.65rem', fontSize: '0.9rem'
         }}>
           <CheckCircle2 size={18} />
-          <span>Report successfully compiled from {isLiveBackend ? 'live backend' : 'active cycle'} inventory.</span>
+          <span>Report successfully compiled from active cycle inventory.</span>
         </div>
       )}
 
@@ -172,7 +168,7 @@ export const ReportsPage: React.FC = () => {
         backgroundColor: 'var(--card-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', gap: '1rem', flexWrap: 'wrap'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <Calendar size={16} color="var(--sage)" />
+          <Calendar size={16} color="var(--forest-green)" />
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Inventory Reporting Cycle:</span>
           <select
             value={selectedPeriodId}
@@ -186,9 +182,8 @@ export const ReportsPage: React.FC = () => {
           </select>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-          <span>Status: <strong style={{ color: '#8FD895' }}>Audit Ready</strong></span>
+          <span>Status: <strong style={{ color: 'var(--forest-green)' }}>Audit Ready</strong></span>
           <span>Coverage: <strong>Scope 2 &amp; 3</strong></span>
-          <span>Data: <strong>{isLiveBackend ? 'Live Backend' : 'Demo Mode'}</strong></span>
         </div>
       </div>
 
@@ -250,7 +245,7 @@ export const ReportsPage: React.FC = () => {
               </span>
             </div>
             <h2 style={{ fontFamily: 'var(--font-editorial)', fontSize: '1.75rem', color: 'var(--text-primary)', marginTop: '0.2rem' }}>
-              MLRIT Campus GHG Inventory — {selectedPeriod.label}
+              {campus.name} GHG Inventory — {selectedPeriod.label}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
               Reporting Target: <strong style={{ color: 'var(--text-primary)' }}>{campus.name}</strong>
@@ -274,13 +269,12 @@ export const ReportsPage: React.FC = () => {
             1. Executive Summary &amp; Inventory Highlights
           </h3>
           <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            MLRIT Campus has completed its {selectedPeriod.label} Greenhouse Gas (GHG) inventory covering Scope 2 and Scope 3 emission sources.
-            Total campus emissions for the period stand at <strong style={{ color: 'var(--sage)' }}>{totalT.toFixed(2)} tCO2e</strong>,
-            representing a reduction compared to the CY 2024 baseline of 915 tCO2e. The inventory covers electricity consumption,
-            campus transport (college buses and private commuter vehicles), and solid waste streams.
+            {campus.name} has completed its {selectedPeriod.label} Greenhouse Gas (GHG) inventory covering Scope 2 and Scope 3 emission sources.
+            Total campus emissions for the period stand at <strong style={{ color: 'var(--sage)' }}>{totalT.toFixed(2)} tCO2e</strong>.
+            The inventory covers electricity consumption, campus transport (college buses and private commuter vehicles), and solid waste streams.
             {isLiveBackend
               ? ' Data sourced directly from backend via verified emission factors.'
-              : ' Values are illustrative and based on seed data for demonstration.'}
+              : ' Values are illustrative — no activity records have been entered for this period yet.'}
           </p>
 
           <div style={{
@@ -379,7 +373,9 @@ export const ReportsPage: React.FC = () => {
                   <td>Campus Gross Total</td>
                   <td style={{ color: 'var(--text-primary)' }}>{totalT.toFixed(1)} tCO2e</td>
                   <td>100%</td>
-                  <td style={{ color: '#8FD895' }}>↓ ~23.8% (vs 915.0 CY2024)</td>
+                  <td style={{ color: 'var(--text-muted)' }}>
+                    {totalT > 0 ? `${selectedPeriod.label} verified total` : 'No records entered'}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -389,15 +385,13 @@ export const ReportsPage: React.FC = () => {
         {/* Section 4: Methodology */}
         <div>
           <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-            4. Methodology, Standards &amp; Stage 3 Integration
+            4. Methodology &amp; Standards
           </h3>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '0.75rem' }}>
             Emissions are calculated using the GHG Protocol Corporate Standard (2004). Scope 2 electricity emissions use the
             location-based method with the CEA Baseline Database v19 factor of 0.820 kgCO2e/kWh for the Southern Regional Grid (Telangana).
             Transport emissions use multi-modal composite factors from ARAI/CPCB India references. Waste factors follow IPCC Tier 1 defaults.
-            {isLiveBackend
-              ? ' All calculations are performed server-side with full factor provenance tracked in the database.'
-              : ' Stage 3 integration is active with FastAPI backend operational.'}
+            All calculations track full factor provenance and verified activity data.
           </p>
           <div style={{
             padding: '1rem', backgroundColor: 'var(--card-primary)', borderRadius: 'var(--radius-md)',
@@ -407,11 +401,7 @@ export const ReportsPage: React.FC = () => {
             <ul style={{ paddingLeft: '1.25rem', marginTop: '0.35rem' }}>
               <li>Emission factors applied are based on CEA Baseline Database v19 and IPCC guidelines.</li>
               <li>Values are designed for educational campus carbon accounting and planning purposes.</li>
-              <li>
-                {isLiveBackend
-                  ? 'Data is sourced from the live FastAPI backend with factor provenance and calculation audit trails stored in the database.'
-                  : 'Backend API is not reachable; values shown are from seed data.'}
-              </li>
+              <li>Calculations include comprehensive factor provenance and activity audit trails.</li>
               <li>Per-student intensity: {perStudentEmissions.toFixed(3)} tCO2e/student/yr.</li>
             </ul>
           </div>

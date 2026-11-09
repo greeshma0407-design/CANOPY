@@ -30,7 +30,6 @@ export const SimulatorPage: React.FC = () => {
     loadScenario,
     resetToBaseline,
     saveCurrentScenario,
-    isLiveBaseline,
     isSavingToBackend,
     backendSaveError
   } = useSimulator();
@@ -114,20 +113,18 @@ export const SimulatorPage: React.FC = () => {
             What-If Decarbonization Simulator
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            Clone baseline inventory ({projection.baseline_total.toFixed(1)} tCO2e{isLiveBaseline ? ' — live backend data' : ' — illustrative'}) and evaluate intervention impacts in real time.
+            Clone campus baseline inventory ({projection.baseline_total.toFixed(1)} tCO2e) and evaluate intervention impacts in real time.
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Badge variant={isLiveBaseline ? 'success' : 'illustrative'}>
-            {isLiveBaseline ? 'Live Baseline Data' : 'Modelled Projections'}
-          </Badge>
+          <Badge variant="success">Interactive Simulator</Badge>
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={resetToBaseline}
             icon={<RotateCcw size={14} />}
           >
-            Reset to Baseline
+            Reset
           </Button>
           <Button
             variant="primary"
